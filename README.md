@@ -42,15 +42,16 @@ pnpm dev              # start Vite dev server
 | `pnpm typecheck` | Types only                       |
 | `pnpm lint`      | ESLint                           |
 | `pnpm test`      | Vitest                           |
-| `pnpm deploy`    | Deploy `dist/` to Cloudflare Pages |
+| `pnpm run deploy` | Build, then deploy to Cloudflare Pages |
 
 Production builds are minified with Terser (comments and `console` stripped, no
 source maps).
 
 ## Deploy
 
-Build and deploy `dist/` to Cloudflare Pages with `pnpm deploy` (after
-`wrangler login`). Config lives in `wrangler.toml`.
+`pnpm run deploy` builds and deploys to Cloudflare Pages (after `wrangler login`).
+Config lives in `wrangler.toml`. Use `pnpm run deploy`, not `pnpm deploy` — the
+latter is a pnpm built-in command, not this script.
 
 ## Stack
 

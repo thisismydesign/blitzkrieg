@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "wrangler pages deploy dist --project-name blitzkrieg"
+    "deploy": "pnpm build && wrangler pages deploy dist --project-name blitzkrieg"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
