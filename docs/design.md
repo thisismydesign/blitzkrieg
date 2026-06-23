@@ -37,18 +37,33 @@ We compare moves by `from`/`to`/`promotion` rather than SAN text, so a missing
 `+`/`#` in the dataset can never cause a false mismatch. Lines **end on a user
 move** so the final move is the user's, not an auto-played reply.
 
-## Spaced repetition & branching
+## Spaced repetition
 
-`SessionScheduler` picks the practice's lead opening with weighted random sampling
-on `effectiveWeight = weight × recency`:
+`SessionScheduler` runs a session-level [Leitner system](https://en.wikipedia.org/wiki/Leitner_system),
+the classic spaced-repetition scheme (the same idea SuperMemo's SM-2 and Anki build
+on): items you know are reviewed less often, items you miss come back soon, and
+intervals grow geometrically. Time is measured in **completed practices**, not
+wall-clock — a session-only model (no persistence), deliberately simple.
 
-- `weight` (1–10) encodes how common a line is.
-- `recency(id)` is `minFactor` right after a line is shown and recovers linearly to
-  `1` over `cooldown` draws, so the same lead rarely repeats back-to-back.
+Each opening has a Leitner *box*:
 
-The lead sets the side; the candidate set is every pooled opening of that side.
-Within a practice, **weighting the opponent's branch choices** is what makes common
-replies frequent and offbeat/sub-optimal ones rare — no separate logic needed.
+- **Unseen openings have top priority**, so you meet every new line before any
+  repeat — this is what stops the "same opening over and over" feeling.
+- **Perfect completion → promote a box.** The next review waits `INTERVALS[box]`
+  practices (`[1, 2, 4, 8, 16]`), so a mastered line stays out of rotation longer
+  each time you nail it.
+- **A mistake → back to box 0**, due again almost immediately.
+- An opening is *due* once `practices_since_last_seen ≥ INTERVALS[box]`.
+
+Selection: `pickFocus` chooses among unseen openings first, then due ones, weighted
+by `weight` (1–10, how common the line is) so common openings still dominate the
+due set. The chosen focus sets the side, and the branching candidate set is the
+**due/unseen openings of that side**, so the opponent's (weighted) branch choices
+steer you toward fresh material rather than mastered lines. "Vary" likewise picks a
+not-yet-mastered sibling.
+
+References: [Leitner system](https://en.wikipedia.org/wiki/Leitner_system),
+[SM-2 algorithm](https://en.wikipedia.org/wiki/SuperMemo#Description_of_SM-2_algorithm).
 
 ## Timing
 

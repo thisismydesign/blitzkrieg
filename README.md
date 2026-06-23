@@ -17,6 +17,10 @@ where theory does, then you get speed/accuracy stats and a fresh opening.
   wrong square. No text telling you what to play.
 - **Repeat until perfect**: a line repeats until you play it with zero mistakes,
   then you move on to a new one.
+- **Spaced repetition**: new openings come up first; once you play one perfectly
+  it's suppressed for a while (and longer each time you nail it again), so you
+  meet fresh material instead of drilling the same line — a Leitner-style schedule
+  ([design notes](./docs/design.md#spaced-repetition)).
 - **Hints**: tap 💡 once to highlight the piece to move, again for its target.
   Optional auto-reveal after a delay. "Give hint when incorrect" (on by default)
   reveals just the part you got wrong — the correct piece, or the correct square.

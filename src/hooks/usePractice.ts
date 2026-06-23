@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { PracticeEngine } from '../chess/engine';
 import type { AttemptResult, EngineState } from '../chess/engine';
 import { SessionScheduler } from '../chess/scheduler';
@@ -57,12 +57,13 @@ export function availableVariations(filters: PracticeFilters, side: Side): numbe
   return pool(filters).filter((o) => o.userSide === side).length;
 }
 
-/** Candidates for a fresh practice: the scheduler picks a weighted lead (which
- *  sets the side); the candidate tree is every pooled opening of that side, so
- *  the line can branch based on the user's moves. */
+/** Candidates for a fresh practice. The scheduler picks a focus (new/due lines
+ *  first — see scheduler.ts), which sets the side; the candidate tree is the
+ *  due/unseen openings of that side, so branching steers toward fresh material. */
 function freshCandidates(scheduler: SessionScheduler, filters: PracticeFilters): Opening[] {
-  const lead = scheduler.next();
-  return pool(filters).filter((o) => o.userSide === lead.userSide);
+  const focus = scheduler.pickFocus(pool(filters));
+  const sideOpenings = pool(filters).filter((o) => o.userSide === focus.userSide);
+  return scheduler.due(sideOpenings);
 }
 
 interface Core {
@@ -82,14 +83,13 @@ function buildCore(filters: PracticeFilters): Core {
 export function usePractice(initial: PracticeFilters): Practice {
   const [core, setCore] = useState(() => buildCore(initial));
   const [, tick] = useReducer((x: number) => x + 1, 0);
-  // Opening ids the user has completed perfectly this session.
-  const mastered = useRef<Set<string>>(new Set());
 
   const state = core.engine.state();
 
-  const recordMastery = (finished: EngineState) => {
-    if (finished.stats?.accuracy === 1 && finished.outcome) {
-      mastered.current.add(finished.outcome.id);
+  // Feed a finished practice into spaced repetition (no-op if unfinished).
+  const recordOutcome = (scheduler: SessionScheduler, finished: EngineState) => {
+    if (finished.status === 'finished' && finished.outcome) {
+      scheduler.record(finished.outcome.id, finished.stats?.accuracy === 1);
     }
   };
 
@@ -115,7 +115,7 @@ export function usePractice(initial: PracticeFilters): Practice {
   const newPractice = useCallback((forceNew = false) => {
     setCore((c) => {
       const finished = c.engine.state();
-      recordMastery(finished);
+      recordOutcome(c.scheduler, finished);
       const perfect = finished.stats ? finished.stats.accuracy === 1 : false;
       // Imperfect run → drill the exact resolved line again until it's clean.
       const candidates =
@@ -129,9 +129,9 @@ export function usePractice(initial: PracticeFilters): Practice {
   const vary = useCallback(() => {
     setCore((c) => {
       const finished = c.engine.state();
-      recordMastery(finished);
+      recordOutcome(c.scheduler, finished);
       const sideOpenings = pool(c.filters).filter((o) => o.userSide === finished.orientation);
-      const fresh = sideOpenings.filter((o) => !mastered.current.has(o.id));
+      const fresh = sideOpenings.filter((o) => !c.scheduler.isMastered(o.id));
       const choices = fresh.length > 0 ? fresh : sideOpenings;
       const candidates = [pickVariation(choices, finished.outcome?.moves ?? [])];
       return { ...c, candidates, engine: new PracticeEngine(candidates) };

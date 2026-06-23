@@ -1,77 +1,87 @@
 import type { Opening } from '../types';
 
-interface SeenState {
-  lastSeen: number; // practice index when it was last shown
-  count: number;
+interface CardState {
+  /** Leitner box: 0 = learning, higher = mastered for longer. */
+  box: number;
+  /** Practice clock value when this opening was last completed. */
+  lastSeen: number;
 }
 
 /**
- * In-session spaced repetition.
+ * Practices to wait before an opening is due again, indexed by Leitner box.
+ * Box 0 (just missed) returns almost immediately; each correct repetition
+ * roughly doubles the gap (Leitner / SM-2 style geometric growth).
+ */
+const INTERVALS = [1, 2, 4, 8, 16];
+
+/**
+ * In-session spaced repetition over the opening set.
  *
- * Each opening has a base `weight` (how common it is). On top of that we apply a
- * recency factor: a line shown recently is temporarily down-weighted and then
- * recovers to full weight over the next few practices. This means common lines
- * dominate, every line can recur, but you won't see the same one twice in a row.
+ * Rules (Leitner system, see design.md):
+ *  - Unseen openings have top priority, so you meet new lines before repeats.
+ *  - Completing a line perfectly promotes it a box → it isn't shown again until
+ *    its (growing) interval elapses.
+ *  - A mistake resets it to box 0 → it comes back around quickly.
+ *
+ * Time is measured in completed practices (`clock`), not wall-clock.
  */
 export class SessionScheduler {
   private readonly openings: Opening[];
-  private readonly cooldown: number;
-  private readonly minFactor: number;
   private readonly rng: () => number;
-  private readonly seen = new Map<string, SeenState>();
-  private served = 0;
+  private readonly cards = new Map<string, CardState>();
+  private clock = 0;
 
-  constructor(
-    openings: Opening[],
-    opts: { cooldown?: number; minFactor?: number; rng?: () => number } = {},
-  ) {
+  constructor(openings: Opening[], opts: { rng?: () => number } = {}) {
     if (openings.length === 0) throw new Error('SessionScheduler needs at least one opening');
     this.openings = openings;
-    this.cooldown = opts.cooldown ?? 4;
-    this.minFactor = opts.minFactor ?? 0.15;
     this.rng = opts.rng ?? Math.random;
   }
 
-  /** Recency multiplier in [minFactor, 1] based on practices since last shown. */
-  private recency(id: string): number {
-    const s = this.seen.get(id);
-    if (!s) return 1;
-    // `elapsed` is >= 1 on the very next draw; the just-shown line should sit at
-    // `minFactor` then recover to full weight over the next `cooldown` draws.
-    const elapsed = this.served - s.lastSeen;
-    const recovered = Math.max(0, elapsed - 1) / this.cooldown;
-    return Math.min(1, this.minFactor + recovered * (1 - this.minFactor));
+  private interval(box: number): number {
+    return INTERVALS[Math.min(box, INTERVALS.length - 1)];
   }
 
-  private effectiveWeight(o: Opening): number {
-    return o.weight * this.recency(o.id);
+  /** Practices elapsed past an opening's due point; unseen → Infinity. */
+  private overdue(o: Opening): number {
+    const c = this.cards.get(o.id);
+    if (!c) return Infinity;
+    return this.clock - c.lastSeen - this.interval(c.box);
   }
 
-  /** Pick the next opening using weighted random selection. */
-  next(): Opening {
-    const weights = this.openings.map((o) => this.effectiveWeight(o));
-    const total = weights.reduce((a, b) => a + b, 0);
-
+  private weightedPick(list: Opening[]): Opening {
+    const total = list.reduce((sum, o) => sum + o.weight, 0);
     let r = this.rng() * total;
-    let chosen = this.openings[this.openings.length - 1];
-    for (let i = 0; i < this.openings.length; i++) {
-      r -= weights[i];
-      if (r < 0) {
-        chosen = this.openings[i];
-        break;
-      }
+    for (const o of list) {
+      r -= o.weight;
+      if (r < 0) return o;
     }
-
-    const prev = this.seen.get(chosen.id);
-    this.seen.set(chosen.id, { lastSeen: this.served, count: (prev?.count ?? 0) + 1 });
-    this.served += 1;
-    return chosen;
+    return list[list.length - 1];
   }
 
-  /** How many times each opening has been served (for debugging/tests). */
-  counts(): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const [id, s] of this.seen) out[id] = s.count;
-    return out;
+  /** True once the opening has been completed perfectly at least once. */
+  isMastered(id: string): boolean {
+    return (this.cards.get(id)?.box ?? 0) > 0;
+  }
+
+  /** New or due-for-review openings among `among` (falls back to all of them). */
+  due(among: Opening[]): Opening[] {
+    const unseen = among.filter((o) => !this.cards.has(o.id));
+    if (unseen.length) return unseen;
+    const ready = among.filter((o) => this.overdue(o) >= 0);
+    return ready.length ? ready : among;
+  }
+
+  /** Pick the next focus opening: new ones first, then due, weighted by frequency. */
+  pickFocus(among: Opening[] = this.openings): Opening {
+    return this.weightedPick(this.due(among));
+  }
+
+  /** Record a finished practice, advancing the spaced-repetition clock. */
+  record(id: string, perfect: boolean): void {
+    const c = this.cards.get(id) ?? { box: 0, lastSeen: this.clock };
+    c.box = perfect ? Math.min(c.box + 1, INTERVALS.length - 1) : 0;
+    c.lastSeen = this.clock;
+    this.cards.set(id, c);
+    this.clock += 1;
   }
 }

@@ -21,40 +21,44 @@ function seeded(seed: number): () => number {
 }
 
 describe('SessionScheduler', () => {
-  it('favours higher-weighted openings over many draws', () => {
-    const s = new SessionScheduler([mk('common', 10), mk('rare', 1)], {
-      rng: seeded(42),
-      cooldown: 1,
-      minFactor: 1, // disable recency so we isolate base weights
-    });
-    const counts: Record<string, number> = { common: 0, rare: 0 };
-    for (let i = 0; i < 1000; i++) counts[s.next().id]++;
-    expect(counts.common).toBeGreaterThan(counts.rare * 3);
-  });
-
-  it('avoids immediate repeats via recency down-weighting', () => {
-    const s = new SessionScheduler([mk('a', 5), mk('b', 5)], {
-      rng: seeded(7),
-      cooldown: 4,
-      minFactor: 0.05,
-    });
-    let repeats = 0;
-    let prev = s.next().id;
-    for (let i = 0; i < 500; i++) {
-      const cur = s.next().id;
-      if (cur === prev) repeats++;
-      prev = cur;
+  it('serves every new opening before repeating any', () => {
+    const s = new SessionScheduler([mk('a', 10), mk('b', 5), mk('c', 1)], { rng: seeded(1) });
+    const seen = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      const o = s.pickFocus();
+      seen.add(o.id);
+      s.record(o.id, true);
     }
-    // Two equal-weight openings would repeat ~50% of the time (≈250) if picked
-    // uniformly. Recency damping should cut that dramatically.
-    expect(repeats).toBeLessThan(125);
+    expect(seen.size).toBe(3); // all three shown before any repeat
   });
 
-  it('still lets every opening recur over a session', () => {
-    const s = new SessionScheduler([mk('a', 5), mk('b', 5), mk('c', 5)], { rng: seeded(99) });
-    for (let i = 0; i < 200; i++) s.next();
-    const counts = s.counts();
-    expect(Object.keys(counts).sort()).toEqual(['a', 'b', 'c']);
-    for (const id of ['a', 'b', 'c']) expect(counts[id]).toBeGreaterThan(10);
+  it('marks a perfectly-played opening mastered and suppresses it while due', () => {
+    const s = new SessionScheduler([mk('a', 5), mk('b', 5)], { rng: seeded(2) });
+    s.record('a', true);
+    expect(s.isMastered('a')).toBe(true);
+    // 'b' is still unseen, so it must come up before the just-mastered 'a'.
+    expect(s.pickFocus().id).toBe('b');
+  });
+
+  it('keeps a missed opening in rotation over a mastered one', () => {
+    const s = new SessionScheduler([mk('a', 5), mk('b', 5)], { rng: seeded(3) });
+    s.record('a', false); // missed → box 0, due again soon
+    s.record('b', true); // perfect → box 1, suppressed longer
+    expect(s.pickFocus().id).toBe('a');
+    expect(s.isMastered('a')).toBe(false);
+  });
+
+  it('favours higher-weighted openings among due candidates', () => {
+    const s = new SessionScheduler([mk('common', 10), mk('rare', 1)], { rng: seeded(42) });
+    // Seed both so neither is "unseen", then let them fall due together.
+    s.record('common', true);
+    s.record('rare', true);
+    const counts: Record<string, number> = { common: 0, rare: 0 };
+    for (let i = 0; i < 400; i++) {
+      const o = s.pickFocus();
+      counts[o.id]++;
+      s.record(o.id, true);
+    }
+    expect(counts.common).toBeGreaterThan(counts.rare);
   });
 });

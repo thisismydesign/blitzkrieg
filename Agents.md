@@ -36,9 +36,10 @@ src/
   viable opening has a further move the line has resolved to one `outcome`. Moves
   are compared by `from`/`to`/`promotion`, not SAN. `now()` is injected for timing.
   The user starts after the opponent's first reply (`userStartIndex`).
-- **`SessionScheduler`** picks the lead opening by `weight × recency` (recency
-  drops to `minFactor` after a line is shown, recovering over `cooldown` draws),
-  which sets the practice's side. In-memory, per session.
+- **`SessionScheduler`** is a session Leitner spaced-repetition scheduler: unseen
+  openings first, perfect completions promoted to longer intervals, misses reset to
+  box 0. `pickFocus` chooses the focus (sets the side); `due` gives the candidate
+  set; `record(id, perfect)` updates state. In-memory, per session. See design.md.
 - **`usePractice`** renders `engine.state()`, forwards user moves via `attempt()`,
   and schedules opponent replies on a timer. A fresh practice's candidates are every
   pooled opening of the lead's side. `newPractice` repeats the same resolved line
