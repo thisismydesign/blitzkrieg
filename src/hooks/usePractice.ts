@@ -17,6 +17,8 @@ export interface PracticeFilters {
 export interface Practice {
   state: EngineState;
   attempt: (from: string, to: string) => AttemptResult;
+  /** Register a non-move mistake, e.g. selecting the wrong piece. */
+  penalize: () => void;
   /** Advance to the next practice. Repeats the same opening unless the last one
    *  was perfect (or `forceNew` is set, e.g. the user skips). */
   newPractice: (forceNew?: boolean) => void;
@@ -89,7 +91,12 @@ export function usePractice(initial: PracticeFilters): Practice {
     });
   }, []);
 
+  const penalize = useCallback(() => {
+    core.engine.markError();
+    tick();
+  }, [core]);
+
   const setFilters = useCallback((filters: PracticeFilters) => setCore(buildCore(filters)), []);
 
-  return { state, attempt, newPractice, setFilters };
+  return { state, attempt, penalize, newPractice, setFilters };
 }

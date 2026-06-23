@@ -7,6 +7,8 @@ import type { AttemptResult, EngineState } from '../chess/engine';
 interface Props {
   state: EngineState;
   onAttempt: (from: string, to: string) => AttemptResult;
+  /** Called when the user interacts with a piece that has no book move. */
+  onWrongPiece: () => void;
   /** 0 = no hint, 1 = show the piece to move, 2 = also show the destination. */
   hintLevel: number;
   /** Reveal the correct move after a wrong attempt. */
@@ -30,7 +32,7 @@ function squareOffset(square: Square, orientation: 'white' | 'black', size: numb
   return { left: col * size, top: row * size };
 }
 
-export function Board({ state, onAttempt, hintLevel, assist }: Props) {
+export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [selected, setSelected] = useState<Square | ''>('');
@@ -64,6 +66,13 @@ export function Board({ state, onAttempt, hintLevel, assist }: Props) {
     setBlips((prev) => ({ id: prev.id + 1, marks }));
   }
 
+  // A wrong piece can't make a book move: flag the error, don't select it.
+  function wrongPiece(square: Square) {
+    setSelected('');
+    setBlips((prev) => ({ id: prev.id + 1, marks: [{ square, kind: 'bad' }] }));
+    onWrongPiece();
+  }
+
   function onPieceDrop(source: Square, target: Square): boolean {
     if (!state.isUserTurn) return false;
     setSelected('');
@@ -74,10 +83,22 @@ export function Board({ state, onAttempt, hintLevel, assist }: Props) {
 
   function onSquareClick(square: Square): void {
     if (!state.isUserTurn) return;
-    const piece = game.get(square);
-    if (selected === '' || (piece && piece.color === userColor)) {
-      setSelected(piece && piece.color === userColor ? square : '');
-      if (selected !== '' && square === selected) setSelected('');
+    const isOwnPiece = game.get(square)?.color === userColor;
+
+    if (selected === '') {
+      if (!isOwnPiece) return; // tapping an empty/opponent square does nothing
+      if (state.correctFroms.includes(square)) setSelected(square);
+      else wrongPiece(square);
+      return;
+    }
+    if (square === selected) {
+      setSelected('');
+      return;
+    }
+    if (isOwnPiece) {
+      // Switching pieces: only another book piece is selectable.
+      if (state.correctFroms.includes(square)) setSelected(square);
+      else wrongPiece(square);
       return;
     }
     flash(square, onAttempt(selected, square));
@@ -113,6 +134,7 @@ export function Board({ state, onAttempt, hintLevel, assist }: Props) {
         boardWidth={width}
         boardOrientation={state.orientation}
         arePiecesDraggable={state.isUserTurn}
+        isDraggablePiece={({ sourceSquare }) => state.correctFroms.includes(sourceSquare)}
         onPieceDrop={onPieceDrop}
         onSquareClick={onSquareClick}
         customSquareStyles={squareStyles}

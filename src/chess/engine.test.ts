@@ -129,6 +129,15 @@ describe('PracticeEngine', () => {
     expect(e.state().outcome?.id).toBe('it');
   });
 
+  it('exposes the legal book source squares and counts a wrong-piece touch', () => {
+    const e = new PracticeEngine([italian], fakeClock());
+    introWhite(e);
+    expect(e.state().correctFroms).toEqual(['g1']); // only Nf3 is correct
+    e.markError(); // user grabbed some other piece
+    expect(e.state().errorsThisMove).toBe(1);
+    expect(e.state().errorHint?.expectedSan).toBe('Nf3');
+  });
+
   it('rejects a move that belongs to no viable opening', () => {
     const e = new PracticeEngine(branchSet, fakeClock(), () => 0);
     introWhite(e);

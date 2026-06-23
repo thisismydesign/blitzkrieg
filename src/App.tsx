@@ -14,7 +14,7 @@ const sameIds = (a: string[], b: string[]) =>
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const { state, attempt, newPractice, setFilters } = usePractice({
+  const { state, attempt, penalize, newPractice, setFilters } = usePractice({
     side: settings.side,
     openings: settings.openings,
   });
@@ -104,6 +104,7 @@ export default function App() {
         key={round}
         state={state}
         onAttempt={handleAttempt}
+        onWrongPiece={penalize}
         hintLevel={hintLevel}
         assist={settings.assist}
       />

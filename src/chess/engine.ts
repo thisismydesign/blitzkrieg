@@ -25,6 +25,8 @@ export interface EngineState {
   lastMove: Move | null;
   /** A correct move the user could play now (top-weighted) — for hints. */
   expected: (Move & { san: string }) | null;
+  /** Squares the user may legitimately move a piece from right now. */
+  correctFroms: string[];
   /** The opening the line has resolved to, known once finished. */
   outcome: Opening | null;
   stats: PracticeStats | null;
@@ -209,15 +211,24 @@ export class PracticeEngine {
     }
 
     // Legal move, but not a book move: reject and remember the best correct move.
-    this.errorsThisMove += 1;
-    const best = options[0];
-    if (best) this._errorHint = { expectedSan: best.san, from: best.from, to: best.to };
+    this.recordError(options[0]);
     return { accepted: false, legal: true };
+  }
+
+  /** Register a mistake that isn't a full move (e.g. grabbing the wrong piece). */
+  markError(): void {
+    if (this.isUserTurn()) this.recordError(this.nextMoves()[0]);
+  }
+
+  private recordError(best: NextMove | undefined): void {
+    this.errorsThisMove += 1;
+    if (best) this._errorHint = { expectedSan: best.san, from: best.from, to: best.to };
   }
 
   state(): EngineState {
     const userTurn = this.isUserTurn();
-    const best = userTurn ? this.nextMoves()[0] : undefined;
+    const moves = userTurn ? this.nextMoves() : [];
+    const best = moves[0];
     return {
       orientation: this.userSide,
       fen: this.game.fen(),
@@ -228,6 +239,7 @@ export class PracticeEngine {
       errorHint: this._errorHint,
       lastMove: this._lastMove,
       expected: best ? { from: best.from, to: best.to, san: best.san } : null,
+      correctFroms: [...new Set(moves.map((m) => m.from))],
       outcome: this._outcome,
       stats: this._stats,
     };
