@@ -43,6 +43,8 @@ export interface AttemptResult {
   played?: Move;
   /** Other moves that would also have been correct here (different openings). */
   alternatives?: Move[];
+  /** The square to reveal as a hint after a wrong move (the correct square). */
+  hint?: { square: string };
 }
 
 interface NextMove {
@@ -215,15 +217,23 @@ export class PracticeEngine {
     // Legal move with a book piece but the wrong square: point at the right square.
     this.errorsThisMove += 1;
     const samePiece = options.find((o) => o.from === userMove.from);
-    this.setHint(samePiece ?? options[0], samePiece ? 'to' : 'from');
-    return { accepted: false, legal: true };
+    const move = samePiece ?? options[0];
+    const which = samePiece ? 'to' : 'from';
+    this.setHint(move, which);
+    return {
+      accepted: false,
+      legal: true,
+      hint: move ? { square: which === 'to' ? move.to : move.from } : undefined,
+    };
   }
 
-  /** Register grabbing the wrong piece: point at the correct piece. */
-  markError(): void {
-    if (!this.isUserTurn()) return;
+  /** Register grabbing the wrong piece. Returns the correct piece's square. */
+  markError(): string | null {
+    if (!this.isUserTurn()) return null;
     this.errorsThisMove += 1;
-    this.setHint(this.nextMoves()[0], 'from');
+    const move = this.nextMoves()[0];
+    this.setHint(move, 'from');
+    return move ? move.from : null;
   }
 
   private setHint(move: NextMove | undefined, highlight: 'from' | 'to'): void {

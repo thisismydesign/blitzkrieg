@@ -63,7 +63,8 @@ describe('PracticeEngine', () => {
     const e = new PracticeEngine([italian], fakeClock());
     introWhite(e);
     const wrong = e.tryUserMove('d2', 'd4');
-    expect(wrong).toEqual({ accepted: false, legal: true });
+    expect(wrong.accepted).toBe(false);
+    expect(wrong.legal).toBe(true);
     expect(e.state().errorHint?.expectedSan).toBe('Nf3');
     expect(e.state().errorsThisMove).toBe(1);
 
@@ -133,19 +134,18 @@ describe('PracticeEngine', () => {
     const e = new PracticeEngine([italian], fakeClock());
     introWhite(e);
     expect(e.state().correctFroms).toEqual(['g1']); // only Nf3 is correct
-    e.markError(); // user grabbed some other piece
+    expect(e.markError()).toBe('g1'); // hint points at the correct piece
     expect(e.state().errorsThisMove).toBe(1);
-    expect(e.state().errorHint?.expectedSan).toBe('Nf3');
-    expect(e.state().errorHint?.highlight).toBe('from'); // reveal the correct piece
+    expect(e.state().errorHint?.highlight).toBe('from');
   });
 
   it('on a wrong square (right piece) points at the correct destination', () => {
     const e = new PracticeEngine([italian], fakeClock());
     introWhite(e);
     const r = e.tryUserMove('g1', 'h3'); // correct knight, wrong square
-    expect(r).toEqual({ accepted: false, legal: true });
-    expect(e.state().errorHint?.highlight).toBe('to');
-    expect(e.state().errorHint?.to).toBe('f3');
+    expect(r.accepted).toBe(false);
+    expect(r.legal).toBe(true);
+    expect(r.hint).toEqual({ square: 'f3' });
   });
 
   it('rejects a move that belongs to no viable opening', () => {
@@ -154,6 +154,7 @@ describe('PracticeEngine', () => {
     e.tryUserMove('g1', 'f3');
     e.playOpponent();
     const bad = e.tryUserMove('f1', 'e2'); // Be2 is legal but not a book move here
-    expect(bad).toEqual({ accepted: false, legal: true });
+    expect(bad.accepted).toBe(false);
+    expect(bad.legal).toBe(true);
   });
 });

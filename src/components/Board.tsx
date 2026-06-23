@@ -7,8 +7,8 @@ import type { AttemptResult, EngineState } from '../chess/engine';
 interface Props {
   state: EngineState;
   onAttempt: (from: string, to: string) => AttemptResult;
-  /** Called when the user interacts with a piece that has no book move. */
-  onWrongPiece: () => void;
+  /** Called on a wrong-piece touch; returns the correct piece's square (or null). */
+  onWrongPiece: () => string | null;
   /** 0 = no hint, 1 = show the piece to move, 2 = also show the destination. */
   hintLevel: number;
   /** Reveal the correct move after a wrong attempt. */
@@ -19,9 +19,8 @@ const LAST_MOVE = { background: 'rgba(255, 215, 64, 0.35)' };
 const SELECTED = { background: 'rgba(80, 200, 255, 0.45)' };
 const HINT = { boxShadow: 'inset 0 0 0 4px rgba(150, 130, 255, 0.95)' };
 const HINT_TARGET = { background: 'radial-gradient(rgba(150,130,255,0.85) 22%, transparent 24%)' };
-const CORRECT = { boxShadow: 'inset 0 0 0 4px rgba(80, 220, 120, 0.95)' };
 
-type Mark = { square: Square; kind: 'good' | 'bad' | 'alt' };
+type Mark = { square: Square; kind: 'good' | 'bad' | 'alt' | 'hint' };
 
 /** Pixel offset of a square's top-left, accounting for board orientation. */
 function squareOffset(square: Square, orientation: 'white' | 'black', size: number) {
@@ -49,28 +48,36 @@ export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Pro
     return () => ro.disconnect();
   }, []);
 
+  function show(marks: Mark[]) {
+    setBlips((prev) => ({ id: prev.id + 1, marks }));
+  }
+
   // Flash blips: green on the played square, teal on equally-correct alternatives
-  // (and their piece if different), red on a wrong square.
+  // (and their piece if different), red on a wrong square + a green hint on the
+  // correct square when "give hint when incorrect" is on.
   function flash(target: Square, result: AttemptResult) {
     if (!result.legal) return; // impossible drag already snaps back
-    const marks: Mark[] = [];
     if (result.accepted && result.played) {
-      marks.push({ square: result.played.to as Square, kind: 'good' });
+      const marks: Mark[] = [{ square: result.played.to as Square, kind: 'good' }];
       for (const alt of result.alternatives ?? []) {
         marks.push({ square: alt.to as Square, kind: 'alt' });
         if (alt.from !== result.played.from) marks.push({ square: alt.from as Square, kind: 'alt' });
       }
-    } else {
-      marks.push({ square: target, kind: 'bad' });
+      show(marks);
+      return;
     }
-    setBlips((prev) => ({ id: prev.id + 1, marks }));
+    const marks: Mark[] = [{ square: target, kind: 'bad' }];
+    if (assist && result.hint) marks.push({ square: result.hint.square as Square, kind: 'hint' });
+    show(marks);
   }
 
-  // A wrong piece can't make a book move: flag the error, don't select it.
+  // A wrong piece can't make a book move: flag the error and hint the right piece.
   function wrongPiece(square: Square) {
     setSelected('');
-    setBlips((prev) => ({ id: prev.id + 1, marks: [{ square, kind: 'bad' }] }));
-    onWrongPiece();
+    const correct = onWrongPiece();
+    const marks: Mark[] = [{ square, kind: 'bad' }];
+    if (assist && correct) marks.push({ square: correct as Square, kind: 'hint' });
+    show(marks);
   }
 
   function onPieceDrop(source: Square, target: Square): boolean {
@@ -117,14 +124,9 @@ export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Pro
         styles[state.expected.to] = { ...(styles[state.expected.to] ?? {}), ...HINT_TARGET };
       }
     }
-    if (assist && state.errorHint) {
-      // Reveal only the part the user got wrong: the piece or its destination.
-      const sq = state.errorHint.highlight === 'from' ? state.errorHint.from : state.errorHint.to;
-      styles[sq] = { ...(styles[sq] ?? {}), ...CORRECT };
-    }
     if (selected) styles[selected] = { ...(styles[selected] ?? {}), ...SELECTED };
     return styles;
-  }, [state.lastMove, state.expected, state.errorHint, selected, hintLevel, assist]);
+  }, [state.lastMove, state.expected, selected, hintLevel]);
 
   const size = width / 8;
 
