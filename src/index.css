@@ -188,6 +188,30 @@ body {
   transform: scale(0.99);
 }
 
+/* Summary actions: optional secondary on the left, bigger default on the right. */
+.summary-actions {
+  display: flex;
+  gap: 10px;
+}
+.summary-actions .btn-primary {
+  width: auto;
+  flex: 2;
+}
+.btn-secondary {
+  flex: 1;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-secondary:active {
+  transform: scale(0.99);
+}
+
 .btn-skip {
   align-self: center;
   background: none;

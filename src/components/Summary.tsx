@@ -3,7 +3,11 @@ import { fmtMs, fmtPct } from '../format';
 
 interface Props {
   stats: PracticeStats;
+  /** Whether a "Vary" option is available (more than one line on this side). */
+  canVary: boolean;
   onNext: () => void;
+  onRepeat: () => void;
+  onVary: () => void;
 }
 
 /** Map a 0..1 score to a colour grade used across the summary. */
@@ -13,10 +17,21 @@ function grade(score: number): { tone: 'good' | 'ok' | 'bad'; label: string } {
   return { tone: 'bad', label: 'Keep practising' };
 }
 
-export function Summary({ stats, onNext }: Props) {
+export function Summary({ stats, canVary, onNext, onRepeat, onVary }: Props) {
   const g = grade(stats.accuracy);
   const perfect = stats.accuracy === 1;
   const errorTone = stats.errors === 0 ? 'good' : stats.errors <= 2 ? 'ok' : 'bad';
+
+  // Bigger default action on the right; optional action on the left.
+  const primary = perfect
+    ? { label: 'Next', onClick: onNext }
+    : { label: 'Repeat', onClick: onRepeat };
+  const secondary = perfect
+    ? canVary
+      ? { label: 'Vary', onClick: onVary }
+      : null
+    : { label: 'Next', onClick: onNext };
+
   return (
     <div className="summary">
       <h2>{stats.opening}</h2>
@@ -29,12 +44,16 @@ export function Summary({ stats, onNext }: Props) {
         <Stat label="Avg / move" value={fmtMs(stats.avgMs)} />
         <Stat label="Fastest" value={fmtMs(stats.fastestMs)} />
       </div>
-      <p className="note">
-        {perfect ? 'Perfect — on to a new opening.' : 'Not perfect yet — repeat to advance.'}
-      </p>
-      <button className="btn-primary" onClick={onNext}>
-        {perfect ? 'Next opening →' : 'Repeat opening'}
-      </button>
+      <div className="summary-actions">
+        {secondary && (
+          <button className="btn-secondary" onClick={secondary.onClick}>
+            {secondary.label}
+          </button>
+        )}
+        <button className="btn-primary" onClick={primary.onClick}>
+          {primary.label}
+        </button>
+      </div>
     </div>
   );
 }

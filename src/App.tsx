@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePractice } from './hooks/usePractice';
+import { usePractice, availableVariations } from './hooks/usePractice';
 import { Board } from './components/Board';
 import { StatsBar } from './components/StatsBar';
 import { Summary } from './components/Summary';
@@ -14,7 +14,7 @@ const sameIds = (a: string[], b: string[]) =>
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const { state, attempt, penalize, newPractice, setFilters } = usePractice({
+  const { state, attempt, penalize, newPractice, vary, setFilters } = usePractice({
     side: settings.side,
     openings: settings.openings,
   });
@@ -58,6 +58,12 @@ export default function App() {
     },
     [newPractice],
   );
+
+  const varyNext = useCallback(() => {
+    vary();
+    setHintLevel(0);
+    setRound((r) => r + 1);
+  }, [vary]);
 
   const updateSettings = useCallback(
     (nextSettings: Settings) => {
@@ -121,7 +127,18 @@ export default function App() {
         )}
 
         {state.status === 'finished' && state.stats && (
-          <Summary stats={state.stats} onNext={() => advance(false)} />
+          <Summary
+            stats={state.stats}
+            canVary={
+              availableVariations(
+                { side: settings.side, openings: settings.openings },
+                state.orientation,
+              ) > 1
+            }
+            onNext={() => advance(true)}
+            onRepeat={() => advance(false)}
+            onVary={varyNext}
+          />
         )}
       </div>
 
