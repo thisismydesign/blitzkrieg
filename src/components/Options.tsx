@@ -77,7 +77,7 @@ export function Options({ settings, onChange, onClose }: Props) {
             checked={settings.autoHint}
             onChange={(e) => onChange({ ...settings, autoHint: e.target.checked })}
           />
-          <span>Auto-show the piece to move after a delay</span>
+          <span>Show hint after delay</span>
         </label>
         <label className={`row ${settings.autoHint ? '' : 'disabled'}`}>
           <span>Delay</span>

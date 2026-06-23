@@ -20,7 +20,8 @@ export default function App() {
   });
 
   const [round, setRound] = useState(0);
-  const [hintLevel, setHintLevel] = useState(0);
+  // Each press cycles the hint: odd → the piece, even → its destination.
+  const [hintPress, setHintPress] = useState(0);
   const [menu, setMenu] = useState<null | 'options' | 'stats'>(null);
   const recorded = useRef<PracticeStats | null>(null);
 
@@ -34,17 +35,17 @@ export default function App() {
     }
   }, [state.status, state.stats]);
 
-  // Optional auto-hint: reveal the piece to move after a delay.
+  // "Show hint after delay": reveal the piece (same blip) after a delay.
   useEffect(() => {
-    if (!settings.autoHint || !playing || !state.isUserTurn || hintLevel > 0) return;
-    const id = setTimeout(() => setHintLevel(1), settings.autoHintSeconds * 1000);
+    if (!settings.autoHint || !playing || !state.isUserTurn || hintPress > 0) return;
+    const id = setTimeout(() => setHintPress(1), settings.autoHintSeconds * 1000);
     return () => clearTimeout(id);
-  }, [settings.autoHint, settings.autoHintSeconds, playing, state.isUserTurn, state.fen, hintLevel]);
+  }, [settings.autoHint, settings.autoHintSeconds, playing, state.isUserTurn, state.fen, hintPress]);
 
   const handleAttempt = useCallback(
     (from: string, to: string) => {
       const result = attempt(from, to);
-      if (result.accepted) setHintLevel(0);
+      if (result.accepted) setHintPress(0);
       return result;
     },
     [attempt],
@@ -53,7 +54,7 @@ export default function App() {
   const advance = useCallback(
     (forceNew: boolean) => {
       newPractice(forceNew);
-      setHintLevel(0);
+      setHintPress(0);
       setRound((r) => r + 1);
     },
     [newPractice],
@@ -61,7 +62,7 @@ export default function App() {
 
   const varyNext = useCallback(() => {
     vary();
-    setHintLevel(0);
+    setHintPress(0);
     setRound((r) => r + 1);
   }, [vary]);
 
@@ -72,7 +73,7 @@ export default function App() {
         !sameIds(nextSettings.openings, settings.openings)
       ) {
         setFilters({ side: nextSettings.side, openings: nextSettings.openings });
-        setHintLevel(0);
+        setHintPress(0);
         setRound((r) => r + 1);
       }
       setSettings(nextSettings);
@@ -81,7 +82,11 @@ export default function App() {
     [settings, setFilters],
   );
 
-  const hintLabel = hintLevel === 0 ? 'Hint' : hintLevel === 1 ? 'Show target' : 'Hint shown';
+  // Odd press → reveal the piece; even press → reveal its destination.
+  const hintBlip =
+    hintPress > 0 && state.expected
+      ? { square: hintPress % 2 === 1 ? state.expected.from : state.expected.to, id: hintPress }
+      : null;
 
   return (
     <div className="app">
@@ -102,7 +107,7 @@ export default function App() {
         state={state}
         onAttempt={handleAttempt}
         onWrongPiece={penalize}
-        hintLevel={hintLevel}
+        hintBlip={hintBlip}
         assist={settings.assist}
       />
 
@@ -112,10 +117,10 @@ export default function App() {
             <StatsBar key={round} state={state} />
             <button
               className="btn-hint"
-              disabled={!state.isUserTurn || hintLevel >= 2}
-              onClick={() => setHintLevel((l) => Math.min(2, l + 1))}
+              disabled={!state.isUserTurn}
+              onClick={() => setHintPress((p) => p + 1)}
             >
-              💡 {hintLabel}
+              💡 Hint
             </button>
           </div>
         )}

@@ -9,16 +9,14 @@ interface Props {
   onAttempt: (from: string, to: string) => AttemptResult;
   /** Called on a wrong-piece touch; returns the correct piece's square (or null). */
   onWrongPiece: () => string | null;
-  /** 0 = no hint, 1 = show the piece to move, 2 = also show the destination. */
-  hintLevel: number;
+  /** Hint reveal request (from the Hint button / auto-hint); blips on a square. */
+  hintBlip: { square: string; id: number } | null;
   /** Reveal the correct move after a wrong attempt. */
   assist: boolean;
 }
 
 const LAST_MOVE = { background: 'rgba(255, 215, 64, 0.35)' };
 const SELECTED = { background: 'rgba(80, 200, 255, 0.45)' };
-const HINT = { boxShadow: 'inset 0 0 0 4px rgba(150, 130, 255, 0.95)' };
-const HINT_TARGET = { background: 'radial-gradient(rgba(150,130,255,0.85) 22%, transparent 24%)' };
 
 type Mark = { square: Square; kind: 'good' | 'bad' | 'alt' | 'hint' };
 
@@ -31,7 +29,7 @@ function squareOffset(square: Square, orientation: 'white' | 'black', size: numb
   return { left: col * size, top: row * size };
 }
 
-export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Props) {
+export function Board({ state, onAttempt, onWrongPiece, hintBlip, assist }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [selected, setSelected] = useState<Square | ''>('');
@@ -118,15 +116,9 @@ export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Pro
       styles[state.lastMove.from] = { ...LAST_MOVE };
       styles[state.lastMove.to] = { ...LAST_MOVE };
     }
-    if (hintLevel >= 1 && state.expected) {
-      styles[state.expected.from] = { ...(styles[state.expected.from] ?? {}), ...HINT };
-      if (hintLevel >= 2) {
-        styles[state.expected.to] = { ...(styles[state.expected.to] ?? {}), ...HINT_TARGET };
-      }
-    }
     if (selected) styles[selected] = { ...(styles[selected] ?? {}), ...SELECTED };
     return styles;
-  }, [state.lastMove, state.expected, selected, hintLevel]);
+  }, [state.lastMove, selected]);
 
   const size = width / 8;
 
@@ -153,6 +145,17 @@ export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Pro
           style={{ ...squareOffset(m.square, state.orientation, size), width: size, height: size }}
         />
       ))}
+      {hintBlip && (
+        <span
+          key={`hint-${hintBlip.id}`}
+          className="blip blip-guide"
+          style={{
+            ...squareOffset(hintBlip.square as Square, state.orientation, size),
+            width: size,
+            height: size,
+          }}
+        />
+      )}
     </div>
   );
 }
