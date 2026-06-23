@@ -14,7 +14,7 @@ const sameIds = (a: string[], b: string[]) =>
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const { state, attempt, penalize, newPractice, vary, setFilters } = usePractice({
+  const { state, attempt, penalize, newPractice, vary, restart, setFilters } = usePractice({
     side: settings.side,
     openings: settings.openings,
   });
@@ -65,6 +65,12 @@ export default function App() {
     setHintPress(0);
     setRound((r) => r + 1);
   }, [vary]);
+
+  const restartNow = useCallback(() => {
+    restart();
+    setHintPress(0);
+    setRound((r) => r + 1);
+  }, [restart]);
 
   const updateSettings = useCallback(
     (nextSettings: Settings) => {
@@ -148,9 +154,14 @@ export default function App() {
       </div>
 
       {playing && (
-        <button className="btn-skip" onClick={() => advance(true)}>
-          Skip to a new opening
-        </button>
+        <div className="play-controls">
+          <button className="btn-secondary" onClick={restartNow}>
+            Restart
+          </button>
+          <button className="btn-secondary" onClick={() => advance(true)}>
+            Skip
+          </button>
+        </div>
       )}
 
       {menu === 'options' && (

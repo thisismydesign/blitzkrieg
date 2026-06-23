@@ -24,6 +24,8 @@ export interface Practice {
   newPractice: (forceNew?: boolean) => void;
   /** Drill a different, not-yet-mastered variation of the same side. */
   vary: () => void;
+  /** Restart the current practice from the beginning. */
+  restart: () => void;
   setFilters: (filters: PracticeFilters) => void;
 }
 
@@ -55,24 +57,26 @@ export function availableVariations(filters: PracticeFilters, side: Side): numbe
   return pool(filters).filter((o) => o.userSide === side).length;
 }
 
-/** Start a fresh practice: the scheduler picks a weighted lead (which sets the
- *  side); the candidate tree is every pooled opening of that side, so the line
- *  can branch based on the user's moves. */
-function freshEngine(scheduler: SessionScheduler, filters: PracticeFilters): PracticeEngine {
+/** Candidates for a fresh practice: the scheduler picks a weighted lead (which
+ *  sets the side); the candidate tree is every pooled opening of that side, so
+ *  the line can branch based on the user's moves. */
+function freshCandidates(scheduler: SessionScheduler, filters: PracticeFilters): Opening[] {
   const lead = scheduler.next();
-  const candidates = pool(filters).filter((o) => o.userSide === lead.userSide);
-  return new PracticeEngine(candidates);
+  return pool(filters).filter((o) => o.userSide === lead.userSide);
 }
 
 interface Core {
   scheduler: SessionScheduler;
   filters: PracticeFilters;
+  /** Candidate openings the current engine was built from (for Restart). */
+  candidates: Opening[];
   engine: PracticeEngine;
 }
 
 function buildCore(filters: PracticeFilters): Core {
   const scheduler = new SessionScheduler(pool(filters));
-  return { scheduler, filters, engine: freshEngine(scheduler, filters) };
+  const candidates = freshCandidates(scheduler, filters);
+  return { scheduler, filters, candidates, engine: new PracticeEngine(candidates) };
 }
 
 export function usePractice(initial: PracticeFilters): Practice {
@@ -114,11 +118,11 @@ export function usePractice(initial: PracticeFilters): Practice {
       recordMastery(finished);
       const perfect = finished.stats ? finished.stats.accuracy === 1 : false;
       // Imperfect run → drill the exact resolved line again until it's clean.
-      const engine =
+      const candidates =
         !forceNew && !perfect && finished.outcome
-          ? new PracticeEngine([finished.outcome])
-          : freshEngine(c.scheduler, c.filters);
-      return { ...c, engine };
+          ? [finished.outcome]
+          : freshCandidates(c.scheduler, c.filters);
+      return { ...c, candidates, engine: new PracticeEngine(candidates) };
     });
   }, []);
 
@@ -129,9 +133,13 @@ export function usePractice(initial: PracticeFilters): Practice {
       const sideOpenings = pool(c.filters).filter((o) => o.userSide === finished.orientation);
       const fresh = sideOpenings.filter((o) => !mastered.current.has(o.id));
       const choices = fresh.length > 0 ? fresh : sideOpenings;
-      const opening = pickVariation(choices, finished.outcome?.moves ?? []);
-      return { ...c, engine: new PracticeEngine([opening]) };
+      const candidates = [pickVariation(choices, finished.outcome?.moves ?? [])];
+      return { ...c, candidates, engine: new PracticeEngine(candidates) };
     });
+  }, []);
+
+  const restart = useCallback(() => {
+    setCore((c) => ({ ...c, engine: new PracticeEngine(c.candidates) }));
   }, []);
 
   const penalize = useCallback(() => {
@@ -142,5 +150,5 @@ export function usePractice(initial: PracticeFilters): Practice {
 
   const setFilters = useCallback((filters: PracticeFilters) => setCore(buildCore(filters)), []);
 
-  return { state, attempt, penalize, newPractice, vary, setFilters };
+  return { state, attempt, penalize, newPractice, vary, restart, setFilters };
 }

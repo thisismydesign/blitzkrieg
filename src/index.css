@@ -217,6 +217,15 @@ body {
   transform: scale(0.99);
 }
 
+/* Restart / Skip controls during play. */
+.play-controls {
+  display: flex;
+  gap: 10px;
+}
+.play-controls .btn-secondary {
+  flex: 1;
+}
+
 .btn-skip {
   align-self: center;
   background: none;
