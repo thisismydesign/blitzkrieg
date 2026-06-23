@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
 import { OPENINGS } from './openings';
-import { PracticeEngine } from './engine';
 
 describe('openings dataset', () => {
   it('has unique ids', () => {
@@ -30,8 +29,12 @@ describe('openings dataset', () => {
   });
 
   it.each(OPENINGS)('$name leaves the user at least one move to play', (opening) => {
-    // After the scripted intro (White's 1st move + reply, or White's 1st move),
+    // After the scripted intro (White: own 1st move + reply; Black: White's 1st),
     // there must be moves left for the user.
-    expect(new PracticeEngine(opening, () => 0).state().totalUserMoves).toBeGreaterThan(0);
+    const start = opening.userSide === 'white' ? 2 : 1;
+    const userMoves = opening.moves.filter(
+      (_, i) => (i % 2 === 0 ? 'white' : 'black') === opening.userSide && i >= start,
+    ).length;
+    expect(userMoves).toBeGreaterThan(0);
   });
 });

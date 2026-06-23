@@ -9,18 +9,32 @@ interface Props {
   onAttempt: (from: string, to: string) => AttemptResult;
   /** 0 = no hint, 1 = show the piece to move, 2 = also show the destination. */
   hintLevel: number;
+  /** Reveal the correct move after a wrong attempt. */
+  assist: boolean;
 }
 
 const LAST_MOVE = { background: 'rgba(255, 215, 64, 0.35)' };
 const SELECTED = { background: 'rgba(80, 200, 255, 0.45)' };
-const CORRECT = { boxShadow: 'inset 0 0 0 4px rgba(80, 220, 120, 0.9)' };
 const HINT = { boxShadow: 'inset 0 0 0 4px rgba(150, 130, 255, 0.95)' };
 const HINT_TARGET = { background: 'radial-gradient(rgba(150,130,255,0.85) 22%, transparent 24%)' };
+const CORRECT = { boxShadow: 'inset 0 0 0 4px rgba(80, 220, 120, 0.95)' };
 
-export function Board({ state, onAttempt, hintLevel }: Props) {
+type Mark = { square: Square; kind: 'good' | 'bad' | 'alt' };
+
+/** Pixel offset of a square's top-left, accounting for board orientation. */
+function squareOffset(square: Square, orientation: 'white' | 'black', size: number) {
+  const file = square.charCodeAt(0) - 97; // a..h -> 0..7
+  const rank = Number(square[1]); // 1..8
+  const col = orientation === 'white' ? file : 7 - file;
+  const row = orientation === 'white' ? 8 - rank : rank - 1;
+  return { left: col * size, top: row * size };
+}
+
+export function Board({ state, onAttempt, hintLevel, assist }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [selected, setSelected] = useState<Square | ''>('');
+  const [blips, setBlips] = useState<{ id: number; marks: Mark[] }>({ id: 0, marks: [] });
 
   const game = useMemo(() => new Chess(state.fen), [state.fen]);
   const userColor = state.orientation === 'white' ? 'w' : 'b';
@@ -33,10 +47,29 @@ export function Board({ state, onAttempt, hintLevel }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  // Flash blips: green on the played square, teal on equally-correct alternatives
+  // (and their piece if different), red on a wrong square.
+  function flash(target: Square, result: AttemptResult) {
+    if (!result.legal) return; // impossible drag already snaps back
+    const marks: Mark[] = [];
+    if (result.accepted && result.played) {
+      marks.push({ square: result.played.to as Square, kind: 'good' });
+      for (const alt of result.alternatives ?? []) {
+        marks.push({ square: alt.to as Square, kind: 'alt' });
+        if (alt.from !== result.played.from) marks.push({ square: alt.from as Square, kind: 'alt' });
+      }
+    } else {
+      marks.push({ square: target, kind: 'bad' });
+    }
+    setBlips((prev) => ({ id: prev.id + 1, marks }));
+  }
+
   function onPieceDrop(source: Square, target: Square): boolean {
     if (!state.isUserTurn) return false;
     setSelected('');
-    return onAttempt(source, target).accepted;
+    const result = onAttempt(source, target);
+    flash(target, result);
+    return result.accepted;
   }
 
   function onSquareClick(square: Square): void {
@@ -47,7 +80,7 @@ export function Board({ state, onAttempt, hintLevel }: Props) {
       if (selected !== '' && square === selected) setSelected('');
       return;
     }
-    onAttempt(selected, square);
+    flash(square, onAttempt(selected, square));
     setSelected('');
   }
 
@@ -63,14 +96,15 @@ export function Board({ state, onAttempt, hintLevel }: Props) {
         styles[state.expected.to] = { ...(styles[state.expected.to] ?? {}), ...HINT_TARGET };
       }
     }
-    if (selected) styles[selected] = { ...(styles[selected] ?? {}), ...SELECTED };
-    if (state.errorHint) {
-      // After a wrong move, always show the full correct move in green.
+    if (assist && state.errorHint) {
       styles[state.errorHint.from] = { ...(styles[state.errorHint.from] ?? {}), ...CORRECT };
       styles[state.errorHint.to] = { ...(styles[state.errorHint.to] ?? {}), ...CORRECT };
     }
+    if (selected) styles[selected] = { ...(styles[selected] ?? {}), ...SELECTED };
     return styles;
-  }, [state.lastMove, state.errorHint, state.expected, selected, hintLevel]);
+  }, [state.lastMove, state.expected, state.errorHint, selected, hintLevel, assist]);
+
+  const size = width / 8;
 
   return (
     <div className="board" ref={wrapRef}>
@@ -87,6 +121,13 @@ export function Board({ state, onAttempt, hintLevel }: Props) {
         customLightSquareStyle={{ backgroundColor: '#dfe3f0' }}
         animationDuration={150}
       />
+      {blips.marks.map((m, i) => (
+        <span
+          key={`${blips.id}-${i}`}
+          className={`blip blip-${m.kind}`}
+          style={{ ...squareOffset(m.square, state.orientation, size), width: size, height: size }}
+        />
+      ))}
     </div>
   );
 }

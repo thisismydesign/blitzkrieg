@@ -51,6 +51,8 @@ export interface Settings {
   autoHint: boolean;
   /** Seconds to wait before the auto hint appears. */
   autoHintSeconds: number;
+  /** On a wrong move, immediately reveal the correct piece and square. */
+  assist: boolean;
 }
 
 /** Per-opening lifetime totals, kept so averages survive across visits. */

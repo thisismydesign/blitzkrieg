@@ -21,7 +21,6 @@ export default function App() {
 
   const [round, setRound] = useState(0);
   const [hintLevel, setHintLevel] = useState(0);
-  const [pulse, setPulse] = useState(0);
   const [menu, setMenu] = useState<null | 'options' | 'stats'>(null);
   const recorded = useRef<PracticeStats | null>(null);
 
@@ -45,20 +44,20 @@ export default function App() {
   const handleAttempt = useCallback(
     (from: string, to: string) => {
       const result = attempt(from, to);
-      if (result.accepted) {
-        setHintLevel(0);
-        setPulse((p) => p + 1);
-      }
+      if (result.accepted) setHintLevel(0);
       return result;
     },
     [attempt],
   );
 
-  const next = useCallback(() => {
-    newPractice();
-    setHintLevel(0);
-    setRound((r) => r + 1);
-  }, [newPractice]);
+  const advance = useCallback(
+    (forceNew: boolean) => {
+      newPractice(forceNew);
+      setHintLevel(0);
+      setRound((r) => r + 1);
+    },
+    [newPractice],
+  );
 
   const updateSettings = useCallback(
     (nextSettings: Settings) => {
@@ -93,20 +92,21 @@ export default function App() {
       </header>
 
       <div className="opening-info">
-        <span className="opening-name">{state.openingName}</span>
+        <span className="opening-name">
+          {playing ? '🎭 Mystery opening' : (state.outcome?.name ?? '')}
+        </span>
         <span className={`badge badge-${state.orientation}`}>
-          You play {state.orientation === 'white' ? 'White' : 'Black'} · {state.openingTag}
+          You play {state.orientation === 'white' ? 'White' : 'Black'}
         </span>
       </div>
 
-      <div className="board-wrap">
-        <Board key={round} state={state} onAttempt={handleAttempt} hintLevel={hintLevel} />
-        {pulse > 0 && (
-          <div key={pulse} className="pulse">
-            ✓
-          </div>
-        )}
-      </div>
+      <Board
+        key={round}
+        state={state}
+        onAttempt={handleAttempt}
+        hintLevel={hintLevel}
+        assist={settings.assist}
+      />
 
       <div className="panel">
         {playing && (
@@ -122,27 +122,19 @@ export default function App() {
           </div>
         )}
 
-        {playing && state.errorHint && (
-          <div className="error-hint">
-            ✗ Wrong move — play <strong>{state.errorHint.expectedSan}</strong> (highlighted)
+        {playing && (
+          <div className="hint muted">
+            {state.isUserTurn ? 'Your move — play the book line.' : 'Opponent to move…'}
           </div>
         )}
 
-        {playing && !state.errorHint && !state.isUserTurn && (
-          <div className="hint muted">Opponent to move…</div>
-        )}
-
-        {playing && !state.errorHint && state.isUserTurn && (
-          <div className="hint muted">Your move — play the book line.</div>
-        )}
-
         {state.status === 'finished' && state.stats && (
-          <Summary stats={state.stats} onNext={next} />
+          <Summary stats={state.stats} onNext={() => advance(false)} />
         )}
       </div>
 
       {playing && (
-        <button className="btn-skip" onClick={next}>
+        <button className="btn-skip" onClick={() => advance(true)}>
           Skip to a new opening
         </button>
       )}

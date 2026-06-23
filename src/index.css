@@ -86,38 +86,40 @@ body {
   color: #cdd2e6;
 }
 
-.board-wrap {
-  position: relative;
-  width: 100%;
-}
 .board {
+  position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
 }
 
-.pulse {
+/* Square-scoped blip that grows and fades from the centre. */
+.blip {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 6rem;
-  color: var(--green);
   pointer-events: none;
-  animation: pop 0.6s ease-out forwards;
+  border-radius: 50%;
+  transform-origin: center;
+  animation: blip 0.6s ease-out forwards;
 }
-@keyframes pop {
+.blip-good {
+  background: radial-gradient(circle, rgba(80, 220, 120, 0.95) 0%, rgba(80, 220, 120, 0.45) 38%, transparent 60%);
+}
+.blip-bad {
+  background: radial-gradient(circle, rgba(255, 80, 80, 0.95) 0%, rgba(255, 80, 80, 0.45) 38%, transparent 60%);
+}
+.blip-alt {
+  background: radial-gradient(circle, rgba(90, 200, 255, 0.85) 0%, rgba(90, 200, 255, 0.35) 38%, transparent 60%);
+}
+@keyframes blip {
   0% {
+    transform: scale(0.15);
     opacity: 0;
-    transform: scale(0.4);
   }
   30% {
-    opacity: 0.9;
-    transform: scale(1.1);
+    opacity: 1;
   }
   100% {
+    transform: scale(1.1);
     opacity: 0;
-    transform: scale(1.4);
   }
 }
 
@@ -283,18 +285,19 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: 16px;
   z-index: 10;
 }
 .modal {
   background: var(--panel);
   width: 100%;
-  max-width: 520px;
-  max-height: 88dvh;
+  max-width: 480px;
+  max-height: 86dvh;
   overflow-y: auto;
-  border-radius: 16px 16px 0 0;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;

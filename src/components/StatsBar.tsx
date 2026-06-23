@@ -18,10 +18,7 @@ export function StatsBar({ state }: { state: EngineState }) {
   return (
     <div className="statsbar">
       <span>⏱ {fmtMs(elapsed)}</span>
-      <span>
-        Move {Math.min(state.userMovesDone + (state.isUserTurn ? 1 : 0), state.totalUserMoves)}/
-        {state.totalUserMoves}
-      </span>
+      <span>Move {state.userMovesDone + (state.isUserTurn ? 1 : 0)}</span>
       <span className={state.errorsThisMove ? 'statsbar-err' : ''}>✗ {state.errorsThisMove}</span>
     </div>
   );

@@ -2,75 +2,95 @@ import { Chess } from 'chess.js';
 import type { Opening, PracticeStats, Side } from '../types';
 
 export interface ErrorHint {
-  /** Canonical SAN of the move the user should have played. */
   expectedSan: string;
   from: string;
   to: string;
 }
 
+export interface Move {
+  from: string;
+  to: string;
+}
+
 export interface EngineState {
-  openingId: string;
-  openingName: string;
-  openingTag: string;
-  fen: string;
   orientation: Side;
+  fen: string;
   status: 'playing' | 'finished';
   isUserTurn: boolean;
   userMovesDone: number;
-  totalUserMoves: number;
   /** Wrong attempts on the move currently being played. */
   errorsThisMove: number;
   errorHint: ErrorHint | null;
   /** Last move applied to the board, for highlighting. */
-  lastMove: { from: string; to: string } | null;
-  /** The move the user should play now (the hint answer); null off-turn. */
-  expected: { from: string; to: string; san: string } | null;
+  lastMove: Move | null;
+  /** A correct move the user could play now (top-weighted) — for hints. */
+  expected: (Move & { san: string }) | null;
+  /** The opening the line has resolved to, known once finished. */
+  outcome: Opening | null;
   stats: PracticeStats | null;
 }
 
 export interface AttemptResult {
-  /** The move was the expected opening move and was applied. */
+  /** The move matched one of the correct continuations and was applied. */
   accepted: boolean;
   /** The move was a legal chess move (vs. an impossible drag). */
   legal: boolean;
+  /** The square the accepted move landed on. */
+  played?: Move;
+  /** Other moves that would also have been correct here (different openings). */
+  alternatives?: Move[];
+}
+
+interface NextMove {
+  san: string;
+  from: string;
+  to: string;
+  weight: number;
 }
 
 const sideAt = (index: number): Side => (index % 2 === 0 ? 'white' : 'black');
 
 /**
- * Drives a single opening practice: validates user moves against a fixed line,
- * auto-plays the opponent, and records per-move timing and accuracy.
+ * Drives an opening practice over a set of candidate openings that share a side.
  *
- * Pure of any UI — the React layer renders `state()` and calls `tryUserMove` /
- * `playOpponent`. `now` is injectable so timing is testable.
+ * The candidates form a move tree: at each ply the line can branch. When it's the
+ * user's turn any move that continues a still-viable opening is correct, and the
+ * one played narrows the candidates. Opponent (and the scripted White intro) moves
+ * are chosen randomly among viable continuations, weighted by opening weight, so
+ * common replies appear more often. When the candidates run out of moves the line
+ * has resolved to one opening.
  */
 export class PracticeEngine {
   private readonly game = new Chess();
-  private readonly moves: string[];
   private readonly userSide: Side;
-  private readonly now: () => number;
-
-  private index = 0;
   private readonly userStartIndex: number;
+  private readonly now: () => number;
+  private readonly rng: () => number;
+
+  private viable: Opening[];
+  private index = 0;
   private userTurnStart = 0;
   private moveTimes: number[] = [];
   private errorCounts: number[] = [];
   private errorsThisMove = 0;
   private _errorHint: ErrorHint | null = null;
-  private _lastMove: { from: string; to: string } | null = null;
+  private _lastMove: Move | null = null;
   private _status: 'playing' | 'finished' = 'playing';
   private _stats: PracticeStats | null = null;
+  private _outcome: Opening | null = null;
 
   constructor(
-    private readonly opening: Opening,
+    candidates: Opening[],
     now: () => number = () => performance.now(),
+    rng: () => number = Math.random,
   ) {
-    this.moves = opening.moves;
-    this.userSide = opening.userSide;
+    if (candidates.length === 0) throw new Error('PracticeEngine needs a candidate opening');
+    this.viable = candidates;
+    this.userSide = candidates[0].userSide;
     this.now = now;
-    // The user starts playing right after the opponent's first reply, so when
-    // playing White their opening move and Black's reply are auto-played first
-    // (mirroring how White's first move is shown when the user plays Black).
+    this.rng = rng;
+    // The user starts after the opponent's first reply; for White their own first
+    // move and Black's reply are auto-played first.
     this.userStartIndex = this.userSide === 'white' ? 2 : 1;
     this.checkFinished();
     this.maybeStartTimer();
@@ -80,8 +100,28 @@ export class PracticeEngine {
     return sideAt(i) === this.userSide && i >= this.userStartIndex;
   }
 
+  private continuations(): Opening[] {
+    return this.viable.filter((o) => o.moves.length > this.index);
+  }
+
   private isUserTurn(): boolean {
-    return this._status === 'playing' && this.index < this.moves.length && this.isUserMoveIndex(this.index);
+    return this._status === 'playing' && this.continuations().length > 0 && this.isUserMoveIndex(this.index);
+  }
+
+  /** Distinct next moves across viable openings, with summed weights. */
+  private nextMoves(): NextMove[] {
+    const bySan = new Map<string, NextMove>();
+    for (const o of this.continuations()) {
+      const san = o.moves[this.index];
+      let entry = bySan.get(san);
+      if (!entry) {
+        const m = new Chess(this.game.fen()).move(san);
+        entry = { san, from: m.from, to: m.to, weight: 0 };
+        bySan.set(san, entry);
+      }
+      entry.weight += o.weight;
+    }
+    return [...bySan.values()].sort((a, b) => b.weight - a.weight);
   }
 
   private maybeStartTimer(): void {
@@ -89,8 +129,9 @@ export class PracticeEngine {
   }
 
   private checkFinished(): void {
-    if (this.index >= this.moves.length && this._status === 'playing') {
+    if (this.continuations().length === 0 && this._status === 'playing') {
       this._status = 'finished';
+      this._outcome = this.viable.slice().sort((a, b) => b.weight - a.weight)[0] ?? null;
       this._stats = this.computeStats();
     }
   }
@@ -101,8 +142,8 @@ export class PracticeEngine {
     const errors = this.errorCounts.reduce((a, b) => a + b, 0);
     const totalMs = this.moveTimes.reduce((a, b) => a + b, 0);
     return {
-      openingId: this.opening.id,
-      opening: this.opening.name,
+      openingId: this._outcome?.id ?? '',
+      opening: this._outcome?.name ?? '',
       userMoves,
       cleanMoves,
       errors,
@@ -113,16 +154,31 @@ export class PracticeEngine {
     };
   }
 
-  /** Auto-play the next opponent move. No-op if it's the user's turn. */
-  playOpponent(): boolean {
-    if (!(this._status === 'playing' && this.index < this.moves.length) || this.isUserMoveIndex(this.index)) {
-      return false;
-    }
-    const m = this.game.move(this.moves[this.index]);
-    this._lastMove = { from: m.from, to: m.to };
+  private advance(picked: NextMove): void {
+    this.game.move(picked.san);
+    this._lastMove = { from: picked.from, to: picked.to };
+    this.viable = this.continuations().filter((o) => o.moves[this.index] === picked.san);
     this.index += 1;
     this.checkFinished();
     this.maybeStartTimer();
+  }
+
+  /** Auto-play the next opponent (or scripted White intro) move. */
+  playOpponent(): boolean {
+    if (this._status === 'finished' || this.isUserTurn()) return false;
+    const options = this.nextMoves();
+    if (options.length === 0) return false;
+    const total = options.reduce((a, o) => a + o.weight, 0);
+    let r = this.rng() * total;
+    let pick = options[options.length - 1];
+    for (const o of options) {
+      r -= o.weight;
+      if (r < 0) {
+        pick = o;
+        break;
+      }
+    }
+    this.advance(pick);
     return true;
   }
 
@@ -130,60 +186,49 @@ export class PracticeEngine {
   tryUserMove(from: string, to: string): AttemptResult {
     if (!this.isUserTurn()) return { accepted: false, legal: false };
 
-    const probe = new Chess(this.game.fen());
     let userMove;
     try {
-      userMove = probe.move({ from, to, promotion: 'q' });
+      userMove = new Chess(this.game.fen()).move({ from, to, promotion: 'q' });
     } catch {
       return { accepted: false, legal: false }; // not a legal chess move → snap back
     }
 
-    const expected = new Chess(this.game.fen()).move(this.moves[this.index]);
-    const samePromotion = (userMove.promotion ?? '') === (expected.promotion ?? '');
+    const options = this.nextMoves();
+    const matched = options.find((o) => o.from === userMove.from && o.to === userMove.to);
 
-    if (userMove.from === expected.from && userMove.to === expected.to && samePromotion) {
+    if (matched) {
       this.moveTimes.push(this.now() - this.userTurnStart);
       this.errorCounts.push(this.errorsThisMove);
       this.errorsThisMove = 0;
       this._errorHint = null;
-      this.game.move(this.moves[this.index]);
-      this._lastMove = { from: expected.from, to: expected.to };
-      this.index += 1;
-      this.checkFinished();
-      this.maybeStartTimer();
-      return { accepted: true, legal: true };
+      const alternatives = options
+        .filter((o) => o !== matched)
+        .map((o) => ({ from: o.from, to: o.to }));
+      this.advance(matched);
+      return { accepted: true, legal: true, played: { from: matched.from, to: matched.to }, alternatives };
     }
 
-    // Legal move, but not the opening move: reject and show the correct one.
+    // Legal move, but not a book move: reject and remember the best correct move.
     this.errorsThisMove += 1;
-    this._errorHint = { expectedSan: expected.san, from: expected.from, to: expected.to };
+    const best = options[0];
+    if (best) this._errorHint = { expectedSan: best.san, from: best.from, to: best.to };
     return { accepted: false, legal: true };
   }
 
-  /** The expected move now (used for hints); null when it isn't the user's turn. */
-  private expectedMove(): { from: string; to: string; san: string } | null {
-    if (!this.isUserTurn()) return null;
-    const m = new Chess(this.game.fen()).move(this.moves[this.index]);
-    return { from: m.from, to: m.to, san: m.san };
-  }
-
   state(): EngineState {
-    let total = 0;
-    for (let i = 0; i < this.moves.length; i++) if (this.isUserMoveIndex(i)) total++;
+    const userTurn = this.isUserTurn();
+    const best = userTurn ? this.nextMoves()[0] : undefined;
     return {
-      openingId: this.opening.id,
-      openingName: this.opening.name,
-      openingTag: this.opening.tag,
-      fen: this.game.fen(),
       orientation: this.userSide,
+      fen: this.game.fen(),
       status: this._status,
-      isUserTurn: this.isUserTurn(),
+      isUserTurn: userTurn,
       userMovesDone: this.moveTimes.length,
-      totalUserMoves: total,
       errorsThisMove: this.errorsThisMove,
       errorHint: this._errorHint,
       lastMove: this._lastMove,
-      expected: this.expectedMove(),
+      expected: best ? { from: best.from, to: best.to, san: best.san } : null,
+      outcome: this._outcome,
       stats: this._stats,
     };
   }

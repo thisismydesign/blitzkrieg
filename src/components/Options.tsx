@@ -66,6 +66,14 @@ export function Options({ settings, onChange, onClose }: Props) {
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.assist}
+            onChange={(e) => onChange({ ...settings, assist: e.target.checked })}
+          />
+          <span>On a wrong move, reveal the correct piece and square</span>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.autoHint}
             onChange={(e) => onChange({ ...settings, autoHint: e.target.checked })}
           />

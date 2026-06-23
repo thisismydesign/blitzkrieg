@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: Settings = {
   openings: [],
   autoHint: false,
   autoHintSeconds: 5,
+  assist: false,
 };
 
 export const loadSettings = (): Settings => loadJSON(KEY, DEFAULT_SETTINGS);

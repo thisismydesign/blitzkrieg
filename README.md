@@ -7,13 +7,19 @@ as you can; the opponent's replies are pre-scripted. Get a move wrong and it's
 reverted with the correct move highlighted, so you can try again. Each line ends
 where theory does, then you get speed/accuracy stats and a fresh opening.
 
-- **Spaced repetition** within a session: common lines come up more often, every
-  line can recur, but you won't see the same one twice in a row.
-- **Both colours**: White and Black repertoires, plus some offbeat/sub-optimal
-  opponent lines that show up less often. When you play White, your first move and
-  the reply are played for you, then you take over.
-- **Hints**: tap 💡 once to highlight the piece to move, again for its target — you
-  still make the move. Optionally auto-reveal the piece after a configurable delay.
+- **Guess the line**: the opening name is hidden until the end. Lines that share
+  moves **branch** — at a fork any book move is correct and the one you play
+  decides which opening you're in. The opponent's replies are weighted, so common
+  lines come up more often. When you play White, your first move and the reply are
+  played for you, then you take over.
+- **Visual feedback only**: a green blip on the square you land on, teal blips on
+  equally-correct alternatives (and the piece, if it differs), a red blip on a
+  wrong square. No text telling you what to play.
+- **Repeat until perfect**: a line repeats until you play it with zero mistakes,
+  then you move on to a new one.
+- **Hints**: tap 💡 once to highlight the piece to move, again for its target.
+  Optional auto-reveal after a delay, and an optional "assist" that reveals the
+  correct move after a mistake.
 - **Options** (⚙): practise White, Black, or random; pick specific openings.
 - **Lifetime stats** (📊): accuracy, moves, average speed, and best/weakest
   openings — saved locally so they persist across visits.

@@ -27,22 +27,26 @@ src/
 
 ## Core ideas
 
-- **`PracticeEngine`** is UI-agnostic and fully unit-tested. It holds a `chess.js`
-  game, an index into the opening's `moves`, per-move timings, and error counts.
-  `now()` is injected so timing is testable. Moves are compared by `from`/`to`/
-  `promotion` (not SAN strings) to avoid check-symbol formatting mismatches; the
-  canonical SAN shown to the user comes from `chess.js`.
-- **`SessionScheduler`** picks the next line by `weight × recency`, where recency
-  drops to `minFactor` right after a line is shown and recovers over `cooldown`
-  draws. This is in-memory, per session only.
-  The user starts after the opponent's first reply, so when playing White the
-  engine auto-plays 1.e4/…/the reply first (`userStartIndex`).
+- **`PracticeEngine`** is UI-agnostic and fully unit-tested. It takes candidate
+  openings sharing a side and treats them as a move tree: `viable` is the subset
+  still matching the moves played. On the user's turn any move continuing a viable
+  opening is correct (others are returned as `alternatives`); the move played
+  narrows `viable`. Opponent / White-intro moves are picked among viable
+  continuations weighted by opening weight (`rng` injected for tests). When no
+  viable opening has a further move the line has resolved to one `outcome`. Moves
+  are compared by `from`/`to`/`promotion`, not SAN. `now()` is injected for timing.
+  The user starts after the opponent's first reply (`userStartIndex`).
+- **`SessionScheduler`** picks the lead opening by `weight × recency` (recency
+  drops to `minFactor` after a line is shown, recovering over `cooldown` draws),
+  which sets the practice's side. In-memory, per session.
 - **`usePractice`** renders `engine.state()`, forwards user moves via `attempt()`,
-  and schedules the opponent's reply on a timer so it reads as a separate move.
-  `setFilters` rebuilds the scheduler pool from the chosen side / openings.
+  and schedules opponent replies on a timer. A fresh practice's candidates are every
+  pooled opening of the lead's side. `newPractice` repeats the same resolved line
+  (single candidate) until it's played perfectly, then advances. `setFilters`
+  rebuilds the scheduler pool from the chosen side / openings.
 - **Persistence** is localStorage-only via `storage.ts`: `settings.ts` for options,
   `stats/lifetime.ts` for cross-visit totals (recorded once per finished practice
-  in `App`). The engine exposes `expected` (the answer) so the UI can show hints.
+  in `App`). The engine exposes `expected` (a correct move) so the UI can show hints.
 
 ## Conventions
 

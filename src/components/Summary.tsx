@@ -15,10 +15,11 @@ function grade(score: number): { tone: 'good' | 'ok' | 'bad'; label: string } {
 
 export function Summary({ stats, onNext }: Props) {
   const g = grade(stats.accuracy);
+  const perfect = stats.accuracy === 1;
   const errorTone = stats.errors === 0 ? 'good' : stats.errors <= 2 ? 'ok' : 'bad';
   return (
     <div className="summary">
-      <h2>Done — {stats.opening}</h2>
+      <h2>{stats.opening}</h2>
       <div className={`grade grade-${g.tone}`}>{g.label}</div>
       <div className="summary-grid">
         <Stat label="Accuracy" value={fmtPct(stats.accuracy)} tone={g.tone} />
@@ -28,8 +29,11 @@ export function Summary({ stats, onNext }: Props) {
         <Stat label="Avg / move" value={fmtMs(stats.avgMs)} />
         <Stat label="Fastest" value={fmtMs(stats.fastestMs)} />
       </div>
+      <p className="note">
+        {perfect ? 'Perfect — on to a new opening.' : 'Not perfect yet — repeat to advance.'}
+      </p>
       <button className="btn-primary" onClick={onNext}>
-        New practice →
+        {perfect ? 'Next opening →' : 'Repeat opening'}
       </button>
     </div>
   );
