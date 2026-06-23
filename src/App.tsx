@@ -91,15 +91,6 @@ export default function App() {
         </div>
       </header>
 
-      <div className="opening-info">
-        <span className="opening-name">
-          {playing ? '🎭 Mystery opening' : (state.outcome?.name ?? '')}
-        </span>
-        <span className={`badge badge-${state.orientation}`}>
-          You play {state.orientation === 'white' ? 'White' : 'Black'}
-        </span>
-      </div>
-
       <Board
         key={round}
         state={state}

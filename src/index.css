@@ -61,31 +61,6 @@ body {
   cursor: pointer;
 }
 
-.opening-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
-}
-.opening-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-.badge {
-  font-size: 0.78rem;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--panel-2);
-  color: var(--muted);
-}
-.badge-white {
-  color: #fff;
-}
-.badge-black {
-  color: #cdd2e6;
-}
-
 .board {
   position: relative;
   width: 100%;
