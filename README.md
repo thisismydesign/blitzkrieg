@@ -18,8 +18,8 @@ where theory does, then you get speed/accuracy stats and a fresh opening.
 - **Repeat until perfect**: a line repeats until you play it with zero mistakes,
   then you move on to a new one.
 - **Hints**: tap 💡 once to highlight the piece to move, again for its target.
-  Optional auto-reveal after a delay, and an optional "assist" that reveals the
-  correct move after a mistake.
+  Optional auto-reveal after a delay. "Give hint when incorrect" (on by default)
+  reveals just the part you got wrong — the correct piece, or the correct square.
 - **Options** (⚙): practise White, Black, or random; pick specific openings.
 - **Lifetime stats** (📊): accuracy, moves, average speed, and best/weakest
   openings — saved locally so they persist across visits.

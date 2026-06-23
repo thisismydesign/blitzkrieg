@@ -51,7 +51,8 @@ export interface Settings {
   autoHint: boolean;
   /** Seconds to wait before the auto hint appears. */
   autoHintSeconds: number;
-  /** On a wrong move, immediately reveal the correct piece and square. */
+  /** Give a hint when incorrect: reveal the correct piece (wrong piece) or the
+   *  correct square (wrong square) — only the part that was wrong. */
   assist: boolean;
 }
 

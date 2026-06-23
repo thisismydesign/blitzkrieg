@@ -136,6 +136,16 @@ describe('PracticeEngine', () => {
     e.markError(); // user grabbed some other piece
     expect(e.state().errorsThisMove).toBe(1);
     expect(e.state().errorHint?.expectedSan).toBe('Nf3');
+    expect(e.state().errorHint?.highlight).toBe('from'); // reveal the correct piece
+  });
+
+  it('on a wrong square (right piece) points at the correct destination', () => {
+    const e = new PracticeEngine([italian], fakeClock());
+    introWhite(e);
+    const r = e.tryUserMove('g1', 'h3'); // correct knight, wrong square
+    expect(r).toEqual({ accepted: false, legal: true });
+    expect(e.state().errorHint?.highlight).toBe('to');
+    expect(e.state().errorHint?.to).toBe('f3');
   });
 
   it('rejects a move that belongs to no viable opening', () => {

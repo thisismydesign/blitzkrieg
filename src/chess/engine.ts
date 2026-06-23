@@ -5,6 +5,8 @@ export interface ErrorHint {
   expectedSan: string;
   from: string;
   to: string;
+  /** Which part of the correct move to reveal: the piece or its destination. */
+  highlight: 'from' | 'to';
 }
 
 export interface Move {
@@ -210,19 +212,22 @@ export class PracticeEngine {
       return { accepted: true, legal: true, played: { from: matched.from, to: matched.to }, alternatives };
     }
 
-    // Legal move, but not a book move: reject and remember the best correct move.
-    this.recordError(options[0]);
+    // Legal move with a book piece but the wrong square: point at the right square.
+    this.errorsThisMove += 1;
+    const samePiece = options.find((o) => o.from === userMove.from);
+    this.setHint(samePiece ?? options[0], samePiece ? 'to' : 'from');
     return { accepted: false, legal: true };
   }
 
-  /** Register a mistake that isn't a full move (e.g. grabbing the wrong piece). */
+  /** Register grabbing the wrong piece: point at the correct piece. */
   markError(): void {
-    if (this.isUserTurn()) this.recordError(this.nextMoves()[0]);
+    if (!this.isUserTurn()) return;
+    this.errorsThisMove += 1;
+    this.setHint(this.nextMoves()[0], 'from');
   }
 
-  private recordError(best: NextMove | undefined): void {
-    this.errorsThisMove += 1;
-    if (best) this._errorHint = { expectedSan: best.san, from: best.from, to: best.to };
+  private setHint(move: NextMove | undefined, highlight: 'from' | 'to'): void {
+    if (move) this._errorHint = { expectedSan: move.san, from: move.from, to: move.to, highlight };
   }
 
   state(): EngineState {

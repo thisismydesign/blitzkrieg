@@ -118,8 +118,9 @@ export function Board({ state, onAttempt, onWrongPiece, hintLevel, assist }: Pro
       }
     }
     if (assist && state.errorHint) {
-      styles[state.errorHint.from] = { ...(styles[state.errorHint.from] ?? {}), ...CORRECT };
-      styles[state.errorHint.to] = { ...(styles[state.errorHint.to] ?? {}), ...CORRECT };
+      // Reveal only the part the user got wrong: the piece or its destination.
+      const sq = state.errorHint.highlight === 'from' ? state.errorHint.from : state.errorHint.to;
+      styles[sq] = { ...(styles[sq] ?? {}), ...CORRECT };
     }
     if (selected) styles[selected] = { ...(styles[selected] ?? {}), ...SELECTED };
     return styles;

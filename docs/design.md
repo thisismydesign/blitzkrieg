@@ -21,9 +21,11 @@ ends — after that, moves are no longer forced.
    - **Correct** → applied; per-move time recorded; a green blip marks the landing
      square, teal blips mark equally-correct alternatives (and the alternative
      piece, when it differs). Opponent replies.
-   - **Legal but wrong** → reverted (piece snaps back); a red blip marks the square
-     aimed at. With the optional *assist* setting, the correct piece and square are
-     also highlighted.
+   - **Wrong piece** (no book move) → not selectable; a red blip marks it.
+   - **Legal but wrong square** → reverted (piece snaps back); a red blip marks the
+     square aimed at.
+   - With "Give hint when incorrect" (on by default), only the part you got wrong is
+     revealed: the correct piece for a wrong piece, or the correct square otherwise.
    - **Illegal** → snaps back, no penalty.
 4. When no viable opening has a further move the line has **resolved**; the summary
    reveals the opening with a colour-graded accuracy/speed breakdown.
@@ -57,9 +59,9 @@ running), which rewards both accuracy and speed. `now` is injectable for tests.
 ## Hints
 
 A 💡 button reveals help without making the move: first press highlights the
-piece to move, a second press highlights its destination. Two optional settings
-(both off by default): auto-show the piece hint after a configurable number of
-seconds, and *assist* — reveal the correct move after a wrong attempt.
+piece to move, a second press highlights its destination. "Give hint when
+incorrect" (on by default) reveals only the wrong part after a mistake; auto-show
+the piece hint after a configurable delay is also available (off by default).
 
 ## Options & lifetime stats
 

@@ -69,7 +69,7 @@ export function Options({ settings, onChange, onClose }: Props) {
             checked={settings.assist}
             onChange={(e) => onChange({ ...settings, assist: e.target.checked })}
           />
-          <span>On a wrong move, reveal the correct piece and square</span>
+          <span>Give hint when incorrect</span>
         </label>
         <label className="check">
           <input
