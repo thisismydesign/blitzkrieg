@@ -1,4 +1,4 @@
-import { createEmptyCard, fsrs, Rating } from 'ts-fsrs';
+import { createEmptyCard, fsrs, Rating, State } from 'ts-fsrs';
 import type { Card, Grade, RecordLogItem } from 'ts-fsrs';
 
 // Spaced repetition uses FSRS-6 via ts-fsrs. A card = one mistake-position. The
@@ -52,5 +52,5 @@ export function reviewCard(card: Card, rating: Grade, now: Date = new Date()): R
   return scheduler.next(card, now, rating);
 }
 
-export { Rating };
+export { Rating, State };
 export type { Card, Grade };
