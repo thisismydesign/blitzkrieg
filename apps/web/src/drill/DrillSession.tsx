@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { gradeAttempt } from '@blitzkrieg/chess-core';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { gradeAttempt, winFrac } from '@blitzkrieg/chess-core';
+import { DEFAULT_DEPTH, Engine } from '../engine/stockfish';
 import { useDueReviews } from '../data/hooks';
 import { recordReview } from '../data/reviews';
 import { MistakeDrill } from './MistakeDrill';
@@ -8,11 +9,25 @@ import { DrillBoard } from './DrillBoard';
 /** Advance-to-next delay after a mistake is solved (ms). */
 const NEXT_DELAY = 1400;
 
+/** MultiPV breadth + how close to best (win probability) still counts as "good". */
+const ACCEPT_MULTIPV = 4;
+const ACCEPT_MARGIN = 0.05;
+
 export function DrillSession({ onExit }: { onExit: () => void }) {
   const { data: reviews, isLoading } = useDueReviews();
   const [index, setIndex] = useState(0);
   const [, forceRender] = useState(0);
   const solvedHandled = useRef<string | null>(null);
+  const engineRef = useRef<Engine | null>(null);
+
+  // One engine for the whole session (Stockfish loads once).
+  useEffect(() => {
+    engineRef.current = new Engine();
+    return () => {
+      engineRef.current?.terminate();
+      engineRef.current = null;
+    };
+  }, []);
 
   const current = reviews?.[index];
   const drill = useMemo(
@@ -26,6 +41,29 @@ export function DrillSession({ onExit }: { onExit: () => void }) {
         : null,
     [current],
   );
+
+  // Enrich the current drill with near-best alternative moves (MultiPV). The best
+  // move is accepted immediately regardless; this also accepts good alternatives
+  // and reveals the best. If the engine fails, the drill still works (best only).
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !drill || !current) return;
+    let cancelled = false;
+    engine
+      .analyse(current.mistake.fen, DEFAULT_DEPTH, ACCEPT_MULTIPV)
+      .then((a) => {
+        if (cancelled || a.lines.length === 0) return;
+        const bestWin = winFrac(a.lines[0]);
+        const good = a.lines.filter((l) => bestWin - winFrac(l) <= ACCEPT_MARGIN).map((l) => l.uci);
+        drill.setAcceptable(good);
+      })
+      .catch(() => {
+        /* best-only fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drill, current]);
 
   function handleChange() {
     forceRender((n) => n + 1);
@@ -92,8 +130,16 @@ export function DrillSession({ onExit }: { onExit: () => void }) {
           </div>
         ) : (
           <div className="solved">
-            Best was <strong>{m.best_san ?? m.best_uci}</strong>; you had played{' '}
-            <strong>{m.played_san ?? m.played_uci}</strong>.
+            {v.wasBest ? (
+              <>
+                Best move — <strong>{m.best_san ?? m.best_uci}</strong> ✓
+              </>
+            ) : (
+              <>
+                Good move! The best was <strong>{m.best_san ?? m.best_uci}</strong>.
+              </>
+            )}{' '}
+            In your game you played <strong>{m.played_san ?? m.played_uci}</strong>.
           </div>
         )}
       </div>

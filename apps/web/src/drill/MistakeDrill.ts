@@ -3,17 +3,20 @@ import type { AttemptOutcome } from '@blitzkrieg/chess-core';
 import type { Side } from '../types';
 
 // Drives a single mistake drill: the learner is dropped into the position before
-// their mistake and must find the engine's best move. Reuses the visual-feedback
-// idiom of the openings engine (green/red blips, hints) but is single-move. UI-
+// their mistake and must find a good move. The best move is always accepted; a
+// set of other "good enough" moves (from a MultiPV search) can be added so that
+// alternative strong moves are also accepted — and the best is revealed. UI-
 // agnostic and unit-tested; `now` is injectable for deterministic timing.
 
 export interface MistakeDrillInput {
   /** Position before the user's move (the decision point). */
   fen: string;
-  /** The correct move to find, in UCI. */
+  /** The single best move to find, in UCI. Always accepted. */
   bestUci: string;
   /** The opponent's move that led into this position, to highlight (or null). */
   leadInUci: string | null;
+  /** Other good-enough moves (UCI) to also accept; the best is always included. */
+  acceptable?: string[];
 }
 
 export interface Square {
@@ -33,6 +36,8 @@ export interface DrillView {
   lastWrong: Square | null;
   /** The solving move once found. */
   solved: (Square & { san: string }) | null;
+  /** Whether the solving move was THE best move (vs a good alternative). */
+  wasBest: boolean;
   /** The piece to move — revealed by the hint button. */
   hintFrom: string | null;
 }
@@ -48,6 +53,7 @@ function split(uci: string): { from: string; to: string; promotion?: string } {
 export class MistakeDrill {
   private readonly game: Chess;
   private readonly best: { from: string; to: string; promotion?: string };
+  private acceptable: Set<string>;
   private readonly orientation: Side;
   private readonly now: () => number;
   private readonly startedAt: number;
@@ -57,6 +63,7 @@ export class MistakeDrill {
   private status: 'playing' | 'solved' = 'playing';
   private lastWrong: Square | null = null;
   private solved: (Square & { san: string }) | null = null;
+  private wasBest = false;
   private hintShown = false;
 
   constructor(
@@ -65,25 +72,34 @@ export class MistakeDrill {
   ) {
     this.game = new Chess(input.fen);
     this.best = split(input.bestUci);
+    this.acceptable = new Set([input.bestUci, ...(input.acceptable ?? [])]);
     this.orientation = this.game.turn() === 'w' ? 'white' : 'black';
     this.now = now;
     this.startedAt = now();
   }
 
-  /** Attempt a move. Illegal moves snap back without penalty; legal-but-wrong
-   *  moves cost an error; the best move solves the drill. */
+  /** Replace the set of accepted moves (best is always kept). Called once the
+   *  MultiPV search of this position returns its good alternatives. */
+  setAcceptable(uciList: string[]): void {
+    this.acceptable = new Set([this.input.bestUci, ...uciList]);
+  }
+
+  /** Attempt a move. Illegal moves snap back without penalty; legal-but-not-good
+   *  moves cost an error; any accepted (best or good) move solves the drill. */
   tryMove(from: string, to: string): { accepted: boolean; correct: boolean; legal: boolean } {
     if (this.status === 'solved') return { accepted: false, correct: false, legal: false };
 
+    let move;
     try {
-      new Chess(this.game.fen()).move({ from, to, promotion: 'q' });
+      move = new Chess(this.game.fen()).move({ from, to, promotion: 'q' });
     } catch {
       return { accepted: false, correct: false, legal: false };
     }
 
-    if (from === this.best.from && to === this.best.to) {
-      const applied = this.game.move({ from, to, promotion: this.best.promotion ?? 'q' });
+    if (this.acceptable.has(move.lan)) {
+      const applied = this.game.move({ from, to, promotion: move.promotion ?? 'q' });
       this.solved = { from, to, san: applied.san };
+      this.wasBest = move.lan === this.input.bestUci;
       this.status = 'solved';
       return { accepted: true, correct: true, legal: true };
     }
@@ -123,6 +139,7 @@ export class MistakeDrill {
       leadIn: lead,
       lastWrong: this.lastWrong,
       solved: this.solved,
+      wasBest: this.wasBest,
       hintFrom: this.hintShown ? this.best.from : null,
     };
   }

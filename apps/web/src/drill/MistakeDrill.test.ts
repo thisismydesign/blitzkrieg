@@ -54,4 +54,26 @@ describe('MistakeDrill', () => {
     const d = new MistakeDrill({ ...input, leadInUci: 'g8f6' });
     expect(d.view().leadIn).toEqual({ from: 'g8', to: 'f6' });
   });
+
+  it('accepts a good alternative move, marking it not-best', () => {
+    const d = new MistakeDrill({ ...input, acceptable: ['g1f3'] });
+    expect(d.tryMove('g1', 'f3')).toMatchObject({ accepted: true, correct: true });
+    expect(d.view()).toMatchObject({ status: 'solved', wasBest: false });
+    expect(d.outcome().correct).toBe(true);
+  });
+
+  it('marks the top move as the best', () => {
+    const d = new MistakeDrill({ ...input, acceptable: ['g1f3'] });
+    d.tryMove('e2', 'e4');
+    expect(d.view().wasBest).toBe(true);
+  });
+
+  it('setAcceptable enables alternatives after construction', () => {
+    const d = new MistakeDrill(input); // best only by default
+    expect(d.tryMove('g1', 'f3').accepted).toBe(false);
+    const fresh = new MistakeDrill(input);
+    fresh.setAcceptable(['g1f3']);
+    expect(fresh.tryMove('g1', 'f3').accepted).toBe(true);
+    expect(fresh.view().wasBest).toBe(false);
+  });
 });
