@@ -10,18 +10,24 @@ import react from '@vitejs/plugin-react';
 // public/engine/ is gitignored; delete it to pick up a stockfish version bump.
 function copyStockfishEngine(): Plugin {
   const files = ['stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm'];
+  const copy = () => {
+    const require = createRequire(import.meta.url);
+    const binDir = join(dirname(require.resolve('stockfish/package.json')), 'bin');
+    const destDir = join(import.meta.dirname, 'public', 'engine');
+    mkdirSync(destDir, { recursive: true });
+    for (const f of files) {
+      const dest = join(destDir, f);
+      if (!existsSync(dest)) cpSync(join(binDir, f), dest);
+    }
+  };
   return {
     name: 'copy-stockfish-engine',
-    buildStart() {
-      const require = createRequire(import.meta.url);
-      const binDir = join(dirname(require.resolve('stockfish/package.json')), 'bin');
-      const destDir = join(import.meta.dirname, 'public', 'engine');
-      mkdirSync(destDir, { recursive: true });
-      for (const f of files) {
-        const dest = join(destDir, f);
-        if (!existsSync(dest)) cpSync(join(binDir, f), dest);
-      }
-    },
+    // configResolved runs once at startup for BOTH dev and build, before the dev
+    // server serves any request — so /engine/* exists on a fresh checkout (the
+    // buildStart hook alone doesn't fire early enough in dev). buildStart is kept
+    // as belt-and-suspenders for the build.
+    configResolved: copy,
+    buildStart: copy,
   };
 }
 
