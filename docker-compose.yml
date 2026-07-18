@@ -1,0 +1,29 @@
+# Standalone Postgres 17 for bare-DB work and SQL-only tests.
+#
+# NOTE: the PRIMARY local database is the Supabase CLI stack (`supabase start`),
+# which runs its own Postgres 17 in Docker on port 54322 and provides Auth +
+# PostgREST + the Edge runtime too. This compose service is an OPTIONAL bare
+# Postgres on a different host port (5433) — pinned to the same major version
+# (17) as supabase/config.toml — for when you want just a database without the
+# full Supabase stack. The two never share a port, so they can run side by side.
+services:
+  postgres:
+    image: postgres:17 # keep in sync with supabase/config.toml `major_version`
+    container_name: blitzkrieg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: blitzkrieg
+    ports:
+      - '5433:5432'
+    volumes:
+      - blitzkrieg-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d blitzkrieg']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  blitzkrieg-pgdata:

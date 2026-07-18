@@ -31,34 +31,63 @@ where theory does, then you get speed/accuracy stats and a fresh opening.
 
 ## Develop
 
+Blitzkrieg is a pnpm + Turborepo monorepo:
+
+| Path | What |
+| --- | --- |
+| `apps/web` | React + Vite frontend |
+| `packages/chess-core` | Shared, framework-free chess logic |
+| `supabase` | Postgres schema, RLS, and edge functions |
+
 ```bash
-mise install          # installs pinned Node + pnpm (see .tool-versions)
+mise install           # Node, pnpm, Deno, Supabase CLI (see .tool-versions)
 pnpm install
-pnpm dev              # start Vite dev server
+cp .env.example .env   # fill in your Supabase project values
+pnpm dev               # Vite dev server (apps/web)
 ```
+
+### Local backend (Supabase)
+
+The local database is the Supabase CLI stack (Docker, Postgres 17):
+
+```bash
+supabase start         # Postgres + Auth + PostgREST + Edge runtime, in Docker
+supabase db reset      # apply migrations + seed
+supabase stop
+```
+
+`supabase start` prints a local API URL and keys — put those in `.env.local`
+(loaded ahead of `.env`) to develop fully offline. A standalone `postgres:17` is
+also available via `docker compose up -d` on port 5433 for bare-DB use.
 
 ## Scripts
 
-| Command          | Purpose                          |
-| ---------------- | -------------------------------- |
-| `pnpm dev`       | Dev server                       |
-| `pnpm build`     | Typecheck + production build     |
-| `pnpm typecheck` | Types only                       |
-| `pnpm lint`      | ESLint                           |
-| `pnpm test`      | Vitest                           |
-| `pnpm run deploy` | Build, then deploy to Cloudflare Pages |
+| Command          | Purpose                                       |
+| ---------------- | --------------------------------------------- |
+| `pnpm dev`       | Frontend dev server                           |
+| `pnpm build`     | Build all packages (Turbo)                    |
+| `pnpm typecheck` | Types across the workspace                    |
+| `pnpm lint`      | ESLint                                         |
+| `pnpm test`      | Vitest (unit) across the workspace            |
+| `pnpm format`    | Prettier                                       |
+| `pnpm run deploy` | Build + deploy the frontend to Cloudflare Pages |
 
 Production builds are minified with Terser (comments and `console` stripped, no
 source maps).
 
 ## Deploy
 
-`pnpm run deploy` builds and deploys to Cloudflare Pages (after `wrangler login`).
-Config lives in `wrangler.toml`. Use `pnpm run deploy`, not `pnpm deploy` — the
-latter is a pnpm built-in command, not this script.
+CI deploys on push to `main` (frontend → Cloudflare Pages; migrations + edge
+functions → Supabase). Manual frontend deploy: `pnpm run deploy` (after
+`wrangler login`) — use `pnpm run deploy`, not `pnpm deploy` (a pnpm built-in).
+See [`docs/technical.md`](./docs/technical.md#12-cicd).
 
 ## Stack
 
 React + TypeScript + Vite, [`chess.js`](https://github.com/jhlywa/chess.js) for
 move legality and [`react-chessboard`](https://github.com/Clariity/react-chessboard)
-for the board. See [`Agents.md`](./Agents.md) for architecture.
+for the board, Stockfish (WASM) for analysis, [Supabase](https://supabase.com)
+(Postgres + Auth + Edge Functions) for the backend, and FSRS
+([`ts-fsrs`](https://github.com/open-spaced-repetition/ts-fsrs)) for spaced
+repetition. See [`Agents.md`](./Agents.md) and
+[`docs/technical.md`](./docs/technical.md) for architecture.
