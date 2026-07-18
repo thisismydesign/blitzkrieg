@@ -6,6 +6,10 @@ coverage
 
 # Vendored Stockfish WASM, copied from the stockfish package at build time.
 apps/web/public/engine/
+
+# Deno lockfile generated when running edge functions locally (versions are
+# pinned inline via npm: specifiers).
+supabase/functions/deno.lock
 *.local
 .DS_Store
 .wrangler
