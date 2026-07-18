@@ -4,38 +4,28 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "dev": "pnpm --filter @blitzkrieg/web dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "deploy": "pnpm build && wrangler pages deploy dist --project-name blitzkrieg"
-  },
-  "dependencies": {
-    "chess.js": "^1.4.0",
-    "react": "^19.2.0",
-    "react-chessboard": "^4.7.3",
-    "react-dom": "^19.2.0"
+    "format:check": "prettier --check .",
+    "deploy": "pnpm --filter @blitzkrieg/web deploy"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "eslint": "^9.39.0",
-    "eslint-plugin-react-hooks": "^7.0.0",
-    "eslint-plugin-react-refresh": "^0.4.24",
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^16.5.0",
-    "prettier": "^3.6.2",
-    "terser": "^5.44.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.0",
-    "vite": "^7.1.12",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.45.0"
+    "prettier": "^3.9.5",
+    "turbo": "^2.10.5",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.64.0"
   }
 }

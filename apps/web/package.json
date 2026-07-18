@@ -1,0 +1,32 @@
+{
+  "name": "@blitzkrieg/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "pnpm build && wrangler pages deploy dist --project-name blitzkrieg"
+  },
+  "dependencies": {
+    "@blitzkrieg/chess-core": "workspace:*",
+    "chess.js": "^1.4.0",
+    "react": "^19.2.0",
+    "react-chessboard": "^4.7.3",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "terser": "^5.44.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.12",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.45.0"
+  }
+}

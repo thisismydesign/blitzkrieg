@@ -1,11 +1,14 @@
 # Architecture
 
-Concise technical overview for contributors and coding agents.
+Concise technical overview for contributors and coding agents. This repo is now a
+pnpm monorepo; this file documents the web app (`apps/web`). For the full-stack
+architecture (backend, database, chess.com import, engine, spaced repetition) see
+[`docs/technical.md`](./docs/technical.md).
 
 ## Layout
 
 ```
-src/
+apps/web/src/
   types.ts              Shared types (Opening, Settings, *Stats, ...)
   format.ts             ms/percent display helpers
   storage.ts            Fail-safe localStorage load/save

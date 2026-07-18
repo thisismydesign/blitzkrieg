@@ -1,10 +1,16 @@
 node_modules
 dist
 coverage
+.turbo
 *.tsbuildinfo
 *.local
 .DS_Store
 .wrangler
+
+# Secrets — never commit. Use .env.example for the template.
+.env
+.env.*
+!.env.example
 
 notes.md
 
