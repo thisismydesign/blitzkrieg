@@ -3,6 +3,9 @@ dist
 coverage
 .turbo
 *.tsbuildinfo
+
+# Vendored Stockfish WASM, copied from the stockfish package at build time.
+apps/web/public/engine/
 *.local
 .DS_Store
 .wrangler

@@ -17,9 +17,11 @@
     "chess.js": "^1.4.0",
     "react": "^19.2.0",
     "react-chessboard": "^4.7.3",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "stockfish": "18.0.8"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
