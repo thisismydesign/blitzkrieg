@@ -2,52 +2,48 @@ name: CI
 
 on:
   push:
+  pull_request:
 
 jobs:
-  typecheck:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
+      - uses: jdx/mise-action@v2 # installs node, pnpm, deno, supabase from .tool-versions
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - run: pnpm build
+      - name: Type-check edge functions (Deno)
+        run: DENO_NO_PACKAGE_JSON=1 deno check --node-modules-dir=none supabase/functions/*/index.ts
 
-  build:
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
+      - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - run: pnpm --filter @blitzkrieg/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @blitzkrieg/web e2e
+        env:
+          # Dummy values so the "My games" mode renders (no real backend call).
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_dummy
+
+  request-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Start Supabase (local stack) + apply migrations
+        run: supabase start
+      - name: Run request/integration tests (RLS, Data API)
+        run: |
+          eval "$(supabase status -o env)"
+          export SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          pnpm --filter @blitzkrieg/backend-tests test
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
