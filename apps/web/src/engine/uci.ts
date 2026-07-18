@@ -55,6 +55,14 @@ export function parseBestmove(line: string): string | null {
   return m[1] === '(none)' ? null : m[1];
 }
 
+/** One principal variation from a (possibly MultiPV) search. */
+export interface AnalysisLine {
+  /** First move of the line (UCI). */
+  uci: string;
+  cp: number | null;
+  mate: number | null;
+}
+
 /** The finished analysis of a position, from the side-to-move POV. */
 export interface Analysis {
   bestUci: string;
@@ -62,16 +70,16 @@ export interface Analysis {
   mate: number | null;
   depth: number;
   knodes: number;
+  /** Top lines, best first — one entry per MultiPV (a single entry for MultiPV=1). */
+  lines: AnalysisLine[];
 }
 
 /**
- * Accumulates UCI output lines for one `go` search. Tracks the latest primary
- * (multipv 1) score/depth and finalises when the `bestmove` line arrives.
+ * Accumulates UCI output for one `go` search, supporting MultiPV. Keeps the
+ * latest line per multipv index and finalises when the `bestmove` line arrives.
  */
 export class UciCollector {
-  private best: string | null = null;
-  private cp: number | null = null;
-  private mate: number | null = null;
+  private readonly lines = new Map<number, AnalysisLine>();
   private depth = 0;
   private nodes = 0;
 
@@ -79,30 +87,29 @@ export class UciCollector {
   push(line: string): Analysis | null {
     const info = parseInfo(line);
     if (info) {
-      if (info.multipv === undefined || info.multipv === 1) {
-        if (info.cp !== undefined) {
-          this.cp = info.cp;
-          this.mate = null;
-        }
-        if (info.mate !== undefined) {
-          this.mate = info.mate;
-          this.cp = null;
-        }
-        if (info.depth !== undefined) this.depth = info.depth;
-        if (info.nodes !== undefined) this.nodes = info.nodes;
-        if (info.pv?.length && this.best === null) this.best = info.pv[0];
+      if (info.pv?.length && (info.cp !== undefined || info.mate !== undefined)) {
+        this.lines.set(info.multipv ?? 1, {
+          uci: info.pv[0],
+          cp: info.cp ?? null,
+          mate: info.mate ?? null,
+        });
       }
+      if (info.depth !== undefined) this.depth = info.depth;
+      if (info.nodes !== undefined) this.nodes = info.nodes;
       return null;
     }
 
     if (line.trim().startsWith('bestmove')) {
       const bm = parseBestmove(line);
+      const sorted = [...this.lines.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+      const best = sorted[0];
       return {
-        bestUci: bm ?? this.best ?? '',
-        cp: this.cp,
-        mate: this.mate,
+        bestUci: bm ?? best?.uci ?? '',
+        cp: best?.cp ?? null,
+        mate: best?.mate ?? null,
         depth: this.depth,
         knodes: Math.round(this.nodes / 1000),
+        lines: sorted,
       };
     }
     return null;

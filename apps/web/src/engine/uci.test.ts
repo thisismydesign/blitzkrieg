@@ -37,7 +37,8 @@ describe('UciCollector', () => {
     expect(c.push('info depth 10 score cp 20 nodes 5000 pv d2d4')).toBeNull();
     expect(c.push('info depth 18 multipv 1 score cp 41 nodes 900000 pv e2e4 e7e5')).toBeNull();
     const result = c.push('bestmove e2e4 ponder e7e5');
-    expect(result).toEqual({ bestUci: 'e2e4', cp: 41, mate: null, depth: 18, knodes: 900 });
+    expect(result).toMatchObject({ bestUci: 'e2e4', cp: 41, mate: null, depth: 18, knodes: 900 });
+    expect(result?.lines).toEqual([{ uci: 'e2e4', cp: 41, mate: null }]);
   });
 
   it('captures a mate score and clears cp', () => {
@@ -48,11 +49,15 @@ describe('UciCollector', () => {
     expect(result).toMatchObject({ bestUci: 'd1h5', cp: null, mate: 2 });
   });
 
-  it('ignores non-primary multipv lines for the score', () => {
+  it('collects MultiPV lines, best first', () => {
     const c = new UciCollector();
     c.push('info depth 18 multipv 1 score cp 30 nodes 100000 pv e2e4');
     c.push('info depth 18 multipv 2 score cp -50 nodes 100000 pv d2d4');
     const result = c.push('bestmove e2e4');
     expect(result).toMatchObject({ cp: 30, bestUci: 'e2e4' });
+    expect(result?.lines).toEqual([
+      { uci: 'e2e4', cp: 30, mate: null },
+      { uci: 'd2d4', cp: -50, mate: null },
+    ]);
   });
 });

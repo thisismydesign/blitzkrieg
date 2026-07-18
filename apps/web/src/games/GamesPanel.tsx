@@ -87,7 +87,15 @@ export function GamesPanel({ onDrill }: { onDrill: () => void }) {
             Analyzing game {Math.min(analyze.progress.gamesDone + 1, analyze.progress.gamesTotal)}/
             {analyze.progress.gamesTotal} · {analyze.progress.positionsDone}/
             {analyze.progress.positionsTotal} positions · {analyze.progress.mistakes} mistakes
+            {analyze.progress.skipped > 0 ? ` · ${analyze.progress.skipped} skipped` : ''}
           </div>
+        </div>
+      )}
+      {analyze.isSuccess && analyze.data && !analyze.progress && (
+        <div className="muted">
+          Analyzed — {analyze.data.mistakes} new mistake{analyze.data.mistakes === 1 ? '' : 's'}
+          {analyze.data.skipped > 0 ? `, ${analyze.data.skipped} positions skipped` : ''}
+          {analyze.data.failedGames > 0 ? `, ${analyze.data.failedGames} games failed` : ''}.
         </div>
       )}
       {analyze.isError && <div className="error">{(analyze.error as Error).message}</div>}
