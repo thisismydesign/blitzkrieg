@@ -11,10 +11,25 @@ const ENGINE_URL = '/engine/stockfish-18-lite-single.js';
 /** Stored with every cached eval so results are reproducible / re-computable. */
 export const ENGINE_VERSION = 'stockfish-18-lite';
 
-/** Default search depth. Fixed (not movetime) so stored evals are reproducible. */
-export const DEFAULT_DEPTH = 18;
+/**
+ * Default search depth. Fixed (not movetime) so stored evals are reproducible.
+ * Depth 12 (~2400 strength, far beyond any human) is plenty to reliably spot a
+ * clearly-better move — which is all mistake detection needs — and is several
+ * times faster than a deep analysis. Raise it for stronger evals at more cost.
+ */
+export const DEFAULT_DEPTH = 12;
 
-export class Engine {
+/**
+ * The engine seam: anything that can evaluate a position + return the best move.
+ * `Engine` (Stockfish WASM) is the only implementation today, but analysis code
+ * depends on this interface so a different engine can be swapped in later.
+ */
+export interface Analyzer {
+  analyse(fen: string, depth?: number): Promise<Analysis>;
+  terminate(): void;
+}
+
+export class Engine implements Analyzer {
   private worker: Worker;
   private onLine: ((line: string) => void) | null = null;
   private ready: Promise<void>;

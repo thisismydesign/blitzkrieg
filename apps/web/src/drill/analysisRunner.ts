@@ -6,21 +6,22 @@ import {
   sideToMove,
   toEpd,
 } from '@blitzkrieg/chess-core';
-import { DEFAULT_DEPTH, Engine } from '../engine/stockfish';
+import { type Analyzer, DEFAULT_DEPTH, Engine } from '../engine/stockfish';
 import { getCachedEvals, persistEval, persistMistakes } from '../data/analysis';
 import type { GameRow } from '../data/rows';
 
 /**
- * Analyse one game with the engine and persist evals + mistakes. Positions are
- * looked up in the global cache first (so shared/opening positions are only ever
- * computed once); freshly-computed evals are written back. Returns the number of
- * new mistakes recorded.
+ * Analyse one game and persist evals + mistakes. Positions are looked up in the
+ * global cache first (shared/opening positions are only ever computed once);
+ * fresh evals are written back. `onPosition` fires once per position (cached or
+ * computed) so callers can drive a progress bar.
  */
 export async function analyzeAndStoreGame(
   game: GameRow,
-  engine: Engine,
+  engine: Analyzer,
   userId: string,
   depth = DEFAULT_DEPTH,
+  onPosition?: () => void,
 ): Promise<number> {
   const userColor: Color = game.user_color === 'black' ? 'b' : 'w';
 
@@ -40,33 +41,56 @@ export async function analyzeAndStoreGame(
     analyze,
     getCached: (epd) => cache.get(epd),
     depth,
+    onEval: () => onPosition?.(),
   });
 
   return persistMistakes(game.id, userId, mistakes);
 }
 
 export interface AnalysisProgress {
-  done: number;
-  total: number;
+  gamesDone: number;
+  gamesTotal: number;
+  /** Positions evaluated so far, across all games in this batch. */
+  positionsDone: number;
+  /** Total positions in this batch (known up front). */
+  positionsTotal: number;
   mistakes: number;
-  current?: GameRow;
+  currentGame?: GameRow;
 }
 
-/** Analyse a batch of games with a single shared engine, reporting progress. */
+/** Analyse a batch of games with one shared engine, reporting per-position progress. */
 export async function analyzeGames(
   games: GameRow[],
   userId: string,
   onProgress?: (p: AnalysisProgress) => void,
   depth = DEFAULT_DEPTH,
 ): Promise<number> {
+  // Count positions up front so the progress bar is smooth (parsing is cheap).
+  const positionsTotal = games.reduce((sum, g) => sum + parseGame(g.pgn).length, 0);
+
   const engine = new Engine();
   let mistakes = 0;
+  let positionsDone = 0;
+
+  const report = (gamesDone: number, currentGame?: GameRow) =>
+    onProgress?.({
+      gamesDone,
+      gamesTotal: games.length,
+      positionsDone,
+      positionsTotal,
+      mistakes,
+      currentGame,
+    });
+
   try {
     for (let i = 0; i < games.length; i++) {
-      onProgress?.({ done: i, total: games.length, mistakes, current: games[i] });
-      mistakes += await analyzeAndStoreGame(games[i], engine, userId, depth);
+      report(i, games[i]);
+      mistakes += await analyzeAndStoreGame(games[i], engine, userId, depth, () => {
+        positionsDone++;
+        report(i, games[i]);
+      });
     }
-    onProgress?.({ done: games.length, total: games.length, mistakes });
+    report(games.length);
     return mistakes;
   } finally {
     engine.terminate();

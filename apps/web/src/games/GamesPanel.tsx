@@ -55,9 +55,26 @@ export function GamesPanel({ onDrill }: { onDrill: () => void }) {
       {imp.isError && <div className="error">{(imp.error as Error).message}</div>}
       {imp.isSuccess && <div className="muted">Imported {imp.data.imported} new game(s).</div>}
       {analyze.progress && (
-        <div className="muted">
-          Analyzing {analyze.progress.done}/{analyze.progress.total} · {analyze.progress.mistakes} mistakes
-          found so far…
+        <div className="analysis-progress">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{
+                width: `${
+                  analyze.progress.positionsTotal
+                    ? Math.round(
+                        (analyze.progress.positionsDone / analyze.progress.positionsTotal) * 100,
+                      )
+                    : 0
+                }%`,
+              }}
+            />
+          </div>
+          <div className="muted">
+            Analyzing game {Math.min(analyze.progress.gamesDone + 1, analyze.progress.gamesTotal)}/
+            {analyze.progress.gamesTotal} · {analyze.progress.positionsDone}/
+            {analyze.progress.positionsTotal} positions · {analyze.progress.mistakes} mistakes
+          </div>
         </div>
       )}
       {analyze.isError && <div className="error">{(analyze.error as Error).message}</div>}
