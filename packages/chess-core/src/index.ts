@@ -11,4 +11,5 @@ export * from './classify';
 export * from './phase';
 export * from './pgn';
 export * from './mistakes';
+export * from './analyzeGame';
 export * from './fsrs';
