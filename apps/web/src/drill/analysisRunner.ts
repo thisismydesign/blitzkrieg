@@ -22,6 +22,7 @@ export async function analyzeAndStoreGame(
   userId: string,
   depth = DEFAULT_DEPTH,
   onPosition?: () => void,
+  signal?: AbortSignal,
 ): Promise<number> {
   const userColor: Color = game.user_color === 'black' ? 'b' : 'w';
 
@@ -29,6 +30,7 @@ export async function analyzeAndStoreGame(
   const cache = await getCachedEvals(nodes.map((n) => n.epd));
 
   const analyze = async (fen: string, d?: number): Promise<Eval> => {
+    if (signal?.aborted) throw new Error('aborted');
     const a = await engine.analyse(fen, d ?? depth);
     const ev: Eval = { cp: a.cp, mate: a.mate, bestUci: a.bestUci };
     const epd = toEpd(fen);
@@ -58,13 +60,20 @@ export interface AnalysisProgress {
   currentGame?: GameRow;
 }
 
+export interface AnalyzeGamesOptions {
+  depth?: number;
+  /** Abort the run between positions (completed games stay persisted → resumable). */
+  signal?: AbortSignal;
+}
+
 /** Analyse a batch of games with one shared engine, reporting per-position progress. */
 export async function analyzeGames(
   games: GameRow[],
   userId: string,
   onProgress?: (p: AnalysisProgress) => void,
-  depth = DEFAULT_DEPTH,
+  opts: AnalyzeGamesOptions = {},
 ): Promise<number> {
+  const { depth = DEFAULT_DEPTH, signal } = opts;
   // Count positions up front so the progress bar is smooth (parsing is cheap).
   const positionsTotal = games.reduce((sum, g) => sum + parseGame(g.pgn).length, 0);
 
@@ -84,11 +93,24 @@ export async function analyzeGames(
 
   try {
     for (let i = 0; i < games.length; i++) {
+      if (signal?.aborted) break;
       report(i, games[i]);
-      mistakes += await analyzeAndStoreGame(games[i], engine, userId, depth, () => {
-        positionsDone++;
-        report(i, games[i]);
-      });
+      try {
+        mistakes += await analyzeAndStoreGame(
+          games[i],
+          engine,
+          userId,
+          depth,
+          () => {
+            positionsDone++;
+            report(i, games[i]);
+          },
+          signal,
+        );
+      } catch (e) {
+        if (signal?.aborted) break; // clean stop mid-game (resumable)
+        throw e;
+      }
     }
     report(games.length);
     return mistakes;

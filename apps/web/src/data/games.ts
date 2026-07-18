@@ -11,16 +11,36 @@ export async function getGames(limit = 200): Promise<GameRow[]> {
   return (data ?? []) as GameRow[];
 }
 
-/** Games not yet analysed by the client engine (drives the analysis queue). */
-export async function getUnanalyzedGames(limit = 20): Promise<GameRow[]> {
+/** Games not yet analysed by the client engine (drives the analysis queue).
+ *  Defaults to all of them (up to the Data API's max-rows cap). */
+export async function getUnanalyzedGames(limit = 1000): Promise<GameRow[]> {
   const { data, error } = await requireSupabase()
     .from('games')
     .select('*')
     .is('analyzed_at', null)
-    .order('played_at', { ascending: false })
+    .order('played_at', { ascending: true }) // oldest first
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as GameRow[];
+}
+
+/** Exact total games count (not row-limited). */
+export async function countGames(): Promise<number> {
+  const { count, error } = await requireSupabase()
+    .from('games')
+    .select('*', { count: 'exact', head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact count of games still awaiting analysis. */
+export async function countUnanalyzedGames(): Promise<number> {
+  const { count, error } = await requireSupabase()
+    .from('games')
+    .select('*', { count: 'exact', head: true })
+    .is('analyzed_at', null);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export interface ImportResult {

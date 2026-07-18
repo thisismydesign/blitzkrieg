@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { useAccounts, useAnalyze, useDueCount, useGames, useImport, useLinkChesscom } from '../data/hooks';
+import {
+  useAccounts,
+  useAnalyze,
+  useDueCount,
+  useGamesCount,
+  useImport,
+  useLinkChesscom,
+  useUnanalyzedCount,
+} from '../data/hooks';
 
 export function GamesPanel({ onDrill }: { onDrill: () => void }) {
   const accounts = useAccounts();
-  const games = useGames();
+  const gamesCount = useGamesCount();
+  const unanalyzedCount = useUnanalyzedCount();
   const due = useDueCount();
   const link = useLinkChesscom();
   const imp = useImport();
@@ -11,7 +20,8 @@ export function GamesPanel({ onDrill }: { onDrill: () => void }) {
   const [username, setUsername] = useState('');
 
   const account = accounts.data?.[0];
-  const unanalyzed = games.data?.filter((g) => !g.analyzed_at).length ?? 0;
+  const unanalyzed = unanalyzedCount.data ?? 0;
+  const totalGames = gamesCount.data ?? 0;
   const dueCount = due.data ?? 0;
 
   if (!account) {
@@ -44,12 +54,15 @@ export function GamesPanel({ onDrill }: { onDrill: () => void }) {
         <button disabled={imp.isPending} onClick={() => imp.mutate({ accountId: account.id, maxMonths: 3 })}>
           {imp.isPending ? 'Importing…' : 'Import games'}
         </button>
-        <button
-          disabled={analyze.isPending || unanalyzed === 0}
-          onClick={() => analyze.mutate(5)}
-        >
-          {analyze.isPending ? 'Analyzing…' : `Analyze ${unanalyzed} game${unanalyzed === 1 ? '' : 's'}`}
-        </button>
+        {analyze.isPending ? (
+          <button className="btn-stop" onClick={() => analyze.stop()}>
+            Stop
+          </button>
+        ) : (
+          <button disabled={unanalyzed === 0} onClick={() => analyze.mutate()}>
+            Analyze all {unanalyzed} game{unanalyzed === 1 ? '' : 's'}
+          </button>
+        )}
       </div>
 
       {imp.isError && <div className="error">{(imp.error as Error).message}</div>}
@@ -81,7 +94,7 @@ export function GamesPanel({ onDrill }: { onDrill: () => void }) {
 
       <div className="stats-row">
         <div>
-          <strong>{games.data?.length ?? 0}</strong> games
+          <strong>{totalGames}</strong> games
         </div>
         <div>
           <strong>{dueCount}</strong> due to drill

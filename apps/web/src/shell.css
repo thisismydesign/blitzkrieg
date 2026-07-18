@@ -164,6 +164,15 @@
   background: var(--green);
   color: #062611;
 }
+.btn-stop {
+  background: var(--red);
+  color: #2a0808;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 .drill {
   display: flex;

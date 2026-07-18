@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import { getAccounts, linkChesscom } from './account';
-import { getGames, getUnanalyzedGames, importGames } from './games';
+import {
+  countGames,
+  countUnanalyzedGames,
+  getGames,
+  getUnanalyzedGames,
+  importGames,
+} from './games';
 import { countDueReviews, getDueReviews } from './reviews';
 import { analyzeGames, type AnalysisProgress } from '../drill/analysisRunner';
 
@@ -16,6 +22,20 @@ export function useAccounts() {
 export function useGames() {
   const { user } = useAuth();
   return useQuery({ queryKey: ['games'], queryFn: () => getGames(), ...enabledWhenSignedIn(user?.id) });
+}
+
+export function useGamesCount() {
+  const { user } = useAuth();
+  return useQuery({ queryKey: ['gamesCount'], queryFn: countGames, ...enabledWhenSignedIn(user?.id) });
+}
+
+export function useUnanalyzedCount() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['unanalyzedCount'],
+    queryFn: countUnanalyzedGames,
+    ...enabledWhenSignedIn(user?.id),
+  });
 }
 
 export function useDueCount() {
@@ -62,19 +82,28 @@ export function useAnalyze() {
   const { user } = useAuth();
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
 
+  const controllerRef = useRef<AbortController | null>(null);
+
   const mutation = useMutation({
-    mutationFn: async (limit: number) => {
+    // Analyse ALL unanalysed games. Resumable: completed games are marked, so a
+    // stop/refresh and re-run picks up where it left off.
+    mutationFn: async () => {
       if (!user) throw new Error('not signed in');
-      const games = await getUnanalyzedGames(limit);
-      return analyzeGames(games, user.id, setProgress);
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      const games = await getUnanalyzedGames();
+      return analyzeGames(games, user.id, setProgress, { signal: controller.signal });
     },
     onSettled: () => {
+      controllerRef.current = null;
+      setProgress(null);
+      qc.invalidateQueries({ queryKey: ['gamesCount'] });
+      qc.invalidateQueries({ queryKey: ['unanalyzedCount'] });
       qc.invalidateQueries({ queryKey: ['games'] });
       qc.invalidateQueries({ queryKey: ['dueCount'] });
       qc.invalidateQueries({ queryKey: ['dueReviews'] });
-      setProgress(null);
     },
   });
 
-  return { ...mutation, progress };
+  return { ...mutation, progress, stop: () => controllerRef.current?.abort() };
 }
