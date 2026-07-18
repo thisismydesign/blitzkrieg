@@ -4,6 +4,12 @@ coverage
 .turbo
 *.tsbuildinfo
 
+# Playwright
+test-results
+playwright-report
+blob-report
+playwright/.cache
+
 # Vendored Stockfish WASM, copied from the stockfish package at build time.
 apps/web/public/engine/
 

@@ -60,6 +60,8 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'node',
+      // Unit tests only; Playwright e2e specs live in e2e/ and run separately.
+      include: ['src/**/*.test.{ts,tsx}'],
     },
   };
 });
